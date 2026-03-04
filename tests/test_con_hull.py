@@ -175,30 +175,3 @@ def test_con_hull(
         hull_function_deviate_mask, [0, -1], False
     )  # type: ignore
     assert xp.allclose(ys_hull_double_prime[hull_function_deviate_mask], 0.0)
-
-
-@pytest.mark.parametrize(
-    "function, function_prime, function_double_prime",
-    [("parabola",) * 3],
-    indirect=True,
-)
-def test_con_hull_raises_for_out_of_bounds(
-    function: Callable, function_prime: Callable, function_double_prime: Callable, xp
-):
-    """Verify :func:`con_hull` raises ValueError for points outside the
-    interval.
-
-    """
-    (f_hull, f_hull_prime, f_hull_double_prime) = con_hull(
-        function,
-        (-1, 1),
-        "lower",
-        f_prime=function_prime,
-        f_double_prime=function_double_prime,
-        xp=xp,
-    )
-
-    for hull_function in [f_hull, f_hull_prime, f_hull_double_prime]:
-        for x in [-2, math.pi]:
-            with pytest.raises(ValueError):
-                hull_function(x)

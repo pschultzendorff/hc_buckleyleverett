@@ -161,8 +161,6 @@ def con_hull(
     def f_hull(x: float | Array) -> Array:
         """Returns the y value of the convex/concave hull at a given x value."""
         x = xp.asarray(x)
-        if xp.any(x < interval[0]) or xp.any(x > interval[1]):
-            raise ValueError(f"x must be in the interval {interval}, got {x}.")
 
         # Find indices of the sample points closest to x (left neighbor, guaranteed
         # not equal to x). Clip to ensure idxs is not negative (if x equal the left
@@ -192,8 +190,6 @@ def con_hull(
 
             """
             x = xp.asarray(x)
-            if xp.any(x < interval[0]) or xp.any(x > interval[1]):
-                raise ValueError(f"x must be in the interval {interval}, got {x}.")
 
             # Find indices of the sample points closest to x (left neighbor, guaranteed
             # not equal to x). Clip to ensure idxs is not negative (if x equal the left
@@ -230,8 +226,6 @@ def con_hull(
 
             """
             x = xp.asarray(x)
-            if xp.any(x < interval[0]) or xp.any(x > interval[1]):
-                raise ValueError(f"x must be in the interval {interval}, got {x}.")
 
             # Find indices of the sample points closest to x (left neighbor, guaranteed
             # not equal to x). Clip to ensure idxs is not negative (if x equal the left
