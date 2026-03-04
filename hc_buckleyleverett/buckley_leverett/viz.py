@@ -27,10 +27,10 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # type: ignore
 from numpy.typing import ArrayLike as ArrayLike_np
 from scipy.ndimage import map_coordinates
 
-from hc_sandbox.buckley_leverett.solvers import solve
+from hc_buckleyleverett.buckley_leverett.solvers import solve
 
 if TYPE_CHECKING:
-    from hc_sandbox.buckley_leverett.protocol import (
+    from hc_buckleyleverett.buckley_leverett.protocol import (
         HCModelandAnalysisProtocol,
         HCModelProtocol,
     )

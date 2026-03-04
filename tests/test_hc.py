@@ -1,11 +1,11 @@
-"""Tests for :mod:`hc_sandbox.buckley_leverett.hc.DiffusionHCMixin`."""
+"""Tests for :mod:`hc_buckleyleverett.buckley_leverett.hc.DiffusionHCMixin`."""
 
 import math
 
 import jax.numpy as jnp
 import numpy as np
-from hc_sandbox.buckley_leverett.hc import ConHullHCMixin, DiffusionHCMixin
-from hc_sandbox.buckley_leverett.model import BuckleyLeverettModel
+from hc_buckleyleverett.buckley_leverett.hc import ConHullHCMixin, DiffusionHCMixin
+from hc_buckleyleverett.buckley_leverett.model import BuckleyLeverettModel
 
 # ---------------------------------------------------------------------------
 # Concrete model with DiffusionHCMixin for testing

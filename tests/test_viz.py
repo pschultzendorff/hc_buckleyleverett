@@ -1,8 +1,8 @@
-"""Tests for :mod:`hc_sandbox.buckley_leverett.viz`."""
+"""Tests for :mod:`hc_buckleyleverett.buckley_leverett.viz`."""
 
 import jax.numpy as jnp
 import numpy as np
-from hc_sandbox.buckley_leverett.viz import segments_arclengths
+from hc_buckleyleverett.buckley_leverett.viz import segments_arclengths
 
 
 def _expected_segment_lengths(betas, solutions):

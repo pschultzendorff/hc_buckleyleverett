@@ -6,11 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/pschultzendorff/hcplayground -b reproducable 
+RUN git clone https://github.com/pschultzendorff/hc_buckleyleverett 
 
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -e /app/hcplayground
+RUN pip install --no-cache-dir -e /app/hc_buckleyleverett
 
 ENV MPLBACKEND=Agg
 
-CMD ["python", "hcplayground/scripts/buckley_leverett/viscous.py"]
+CMD ["python", "hc_buckleyleverett/scripts/buckley_leverett/viscous.py"]

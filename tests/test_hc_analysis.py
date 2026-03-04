@@ -30,7 +30,7 @@ Analytical properties of the helix:
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from hc_sandbox.buckley_leverett.hc_analysis import HCAnalysisMixin
+from hc_buckleyleverett.buckley_leverett.hc_analysis import HCAnalysisMixin
 
 
 class MockHelixModel(HCAnalysisMixin):

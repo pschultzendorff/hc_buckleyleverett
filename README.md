@@ -12,19 +12,19 @@ continuation (HC) methods applied to the Buckley-Leverett problem. Includes:
 
 **Local setup (requires Python 3.12+):**
 ```bash
-git clone https://github.com/pschultzendorff/hcplayground -b reproducable
-cd hcplayground
+git clone https://github.com/pschultzendorff/hc_buckleyleverett -b reproducable
+cd hc_buckleyleverett
 pip install -e .
-python hcplayground/scripts/buckley_leverett/viscous.py
+python hc_buckleyleverett/scripts/buckley_leverett/viscous.py
 ```
 
 **Docker:**
 ```bash
-git clone https://github.com/pschultzendorff/hcplayground -b reproducable
-cd hcplayground
+git clone https://github.com/pschultzendorff/hc_buckleyleverett -b reproducable
+cd hc_buckleyleverett
 docker-compose up
 ```
-Results are saved to `hcplayground/results/viscous/`.
+Results are saved to `hc_buckleyleverett/results/viscous/`.
 
 ## References
 

@@ -4,14 +4,14 @@ from typing import Any
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from hc_sandbox.buckley_leverett.hc import (
+from hc_buckleyleverett.buckley_leverett.hc import (
     ConHullHCMixin,
     DiffusionHCMixin,
     LinearRelPermHCMixin,
 )
-from hc_sandbox.buckley_leverett.hc_analysis import HCAnalysisMixin
-from hc_sandbox.buckley_leverett.model import BuckleyLeverettModel
-from hc_sandbox.buckley_leverett.viz import solve_and_plot
+from hc_buckleyleverett.buckley_leverett.hc_analysis import HCAnalysisMixin
+from hc_buckleyleverett.buckley_leverett.model import BuckleyLeverettModel
+from hc_buckleyleverett.buckley_leverett.viz import solve_and_plot
 
 logging.basicConfig(level=logging.INFO)
 

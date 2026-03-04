@@ -20,12 +20,12 @@ import jax.numpy as jnp
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-from hc_sandbox.buckley_leverett.model import BuckleyLeverettModel
-from hc_sandbox.buckley_leverett.protocol import (
+from hc_buckleyleverett.buckley_leverett.model import BuckleyLeverettModel
+from hc_buckleyleverett.buckley_leverett.protocol import (
     BuckleyLeverettModelProtocol,
     HCProtocol,
 )
-from hc_sandbox.utils.con_hull import HullSide, con_hull
+from hc_buckleyleverett.utils.con_hull import HullSide, con_hull
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

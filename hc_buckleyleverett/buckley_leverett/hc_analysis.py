@@ -25,11 +25,11 @@ from typing import Any, Callable, Optional
 import jax
 import jax.numpy as jnp
 
-from hc_sandbox.buckley_leverett.protocol import (
+from hc_buckleyleverett.buckley_leverett.protocol import (
     BuckleyLeverettModelProtocol,
     HCProtocol,
 )
-from hc_sandbox.buckley_leverett.solvers import newton
+from hc_buckleyleverett.buckley_leverett.solvers import newton
 
 logger = logging.getLogger(__name__)
 
@@ -657,7 +657,7 @@ def check_newton_convergence(
 
     """
     # Suppress solver logging to avoid expensive JAX array __repr__ calls.
-    solver_logger = logging.getLogger("hc_sandbox.buckley_leverett.solvers")
+    solver_logger = logging.getLogger("hc_buckleyleverett.buckley_leverett.solvers")
     prev_level = solver_logger.level
     solver_logger.setLevel(logging.WARNING)
     try:

@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING, Any
 
 import jax.numpy as jnp
 
-from hc_sandbox.buckley_leverett.hc import DiffusionHCMixin, HCMixin
-from hc_sandbox.utils.ui import (
+from hc_buckleyleverett.buckley_leverett.hc import DiffusionHCMixin, HCMixin
+from hc_buckleyleverett.utils.ui import (
     DummyProgressBar,
     logging_redirect_tqdm,
     progressbar_class,
 )
 
 if TYPE_CHECKING:
-    from hc_sandbox.buckley_leverett.protocol import (
+    from hc_buckleyleverett.buckley_leverett.protocol import (
         BuckleyLeverettModelProtocol,
         HCModelProtocol,
     )

@@ -6,8 +6,7 @@ from typing import Callable
 import jax.numpy as jnp
 import numpy as np
 import pytest
-
-from hcplayground.hc_sandbox.utils.con_hull import (
+from hc_buckleyleverett.utils.con_hull import (
     Array,
     HullSide,
     andrews_monotone_chain,
