@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  hcplayground:
+  hc_buckleyleverett:
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./results:/app/hcplayground/results
-    container_name: hcplayground
+      - ./results:/app/hc_buckleyleverett/results
+    container_name: hc_buckleyleverett
     environment:
       - MPLBACKEND=Agg
