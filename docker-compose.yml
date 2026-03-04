@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  hcplayground:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./results:/app/hcplayground/results
+    container_name: hcplayground
+    environment:
+      - MPLBACKEND=Agg
