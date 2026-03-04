@@ -237,8 +237,6 @@ def plot_curvature(
     ax.tick_params(axis="y", labelsize=tick_fontsize)
     ax.set_yscale("log")
 
-    ax.set_ylim(0.01, 20)
-
     # Light grid for good data visibility.
     ax.grid(True, which="both", linestyle=":", alpha=0.3)
 
