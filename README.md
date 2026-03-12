@@ -3,8 +3,8 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18863360.svg)](https://doi.org/10.5281/zenodo.18863360)
 [![arXiv](https://img.shields.io/badge/arXiv-2603.10730-b31b1b.svg)](https://arxiv.org/abs/2603.10730)
 
-Companion code for *Efficient design of continuation methods for hyperbolic transport*
-*problems in porous media*.
+Companion code for [*Efficient design of continuation methods for hyperbolic transport*
+*problems in porous media*](https://arxiv.org/abs/2603.10730).
 
 A collection of modules and run-scripts for analysing and designing homotopy
 continuation (HC) methods applied to the Buckley-Leverett problem. Includes:
