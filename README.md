@@ -1,5 +1,11 @@
 # hc_buckleyleverett
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18863360.svg)](https://doi.org/10.5281/zenodo.18863360)
+[![arXiv](https://img.shields.io/badge/arXiv-2603.10730-b31b1b.svg)](https://arxiv.org/abs/2603.10730)
+
+Companion code for *Efficient design of continuation methods for hyperbolic transport*
+*problems in porous media*.
+
 A collection of modules and run-scripts for analysing and designing homotopy
 continuation (HC) methods applied to the Buckley-Leverett problem. Includes:
 - An implicit finite-volume discretisation of the 1D Buckley-Leverett problem
@@ -32,7 +38,8 @@ If you use this code, please cite:
 
 > von Schultzendorff, P.; Both, J.W.; Nordbotten, J.M.; Sandve, T.H.
 > *Efficient design of continuation methods for hyperbolic transport problems in porous*
-> *media* (in preparation).
+> *media.*
+> https://arxiv.org/abs/2603.10730
 
 ### Used references
 
