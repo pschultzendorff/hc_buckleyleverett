@@ -7,15 +7,18 @@ LABEL email="peter.schultzendorff@uib.no"
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/pschultzendorff/hc_buckleyleverett 
+# Copy the repository files into the container
+COPY . .
 
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -e /app/hc_buckleyleverett
+# Install the package
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -e .
 
+# Matplotlib backend for .png files
 ENV MPLBACKEND=Agg
 
-CMD ["python", "hc_buckleyleverett/scripts/buckley_leverett/viscous.py"]
+CMD ["python", "scripts/buckley_leverett/viscous.py"]

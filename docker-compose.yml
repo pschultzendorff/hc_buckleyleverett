@@ -6,7 +6,5 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./results:/app/hc_buckleyleverett/results
+      - ./results:/app/results
     container_name: hc_buckleyleverett
-    environment:
-      - MPLBACKEND=Agg

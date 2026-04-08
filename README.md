@@ -28,7 +28,7 @@ python hc_buckleyleverett/scripts/buckley_leverett/viscous.py
 ```bash
 git clone https://github.com/pschultzendorff/hc_buckleyleverett
 cd hc_buckleyleverett
-docker-compose up
+docker compose up
 ```
 Results are saved to `hc_buckleyleverett/results/viscous/`.
 
