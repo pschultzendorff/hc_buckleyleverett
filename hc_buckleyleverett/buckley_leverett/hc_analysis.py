@@ -160,8 +160,26 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         dt: float,
         q_prev: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
+        **kwargs,
     ) -> None:
-        """Store tangent and curvature vectors for the homotopy curve."""
+        """Store tangent and curvature vectors for the homotopy curve.
+
+        Parameters:
+            beta: Current homotopy parameter value.
+            q: Current time step solution.
+            dt: Time step size.
+            q_prev: Previous time step solution values. Defaults to the initial
+                condition if not provided.
+            parametrization: Parametrization of the homotopy curve. Either "arclength
+                or "lambda". Defaults to "arclength".
+            **kwargs: Additional keyword arguments to pass to the Newton solver in the
+                convergence metric calculation.
+                - convergence_metric_appleyard_damping: Whether to use Appleyard damping
+                    in the Newton solver for the convergence check. Defaults to False.
+                - convergence_metric_physical_damping: Whether to use physical damping
+                    in the Newton solver for the convergence check. Defaults to False.
+
+        """
         # Mixin; concrete store_curve_data provided by HCMixin via MRO.
         super().store_curve_data(beta, q, dt, q_prev=q_prev)  # type: ignore
 
@@ -208,6 +226,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
                     q_prev,
                     tangent=self.tangents[-1],
                     parametrization=parametrization,
+                    **kwargs,
                 )
             )
 
@@ -247,7 +266,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
 
         where :math:`\tau = \begin{pmatrix} \mathbf{z} \\ -1 \end{pmatrix}` is the
         unnormalized tangent vector and :math:`\xi` is a scaling factor to ensure
-        tracing in a consisten direction. The unnormalized tangent vector is found by
+        tracing in a consistent direction. The unnormalized tangent vector is found by
         solving the linear system
 
         .. math::
@@ -256,7 +275,9 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             \partial_{\lambda} \mathcal{H}(\mathbf{q}, \lambda).
 
         Note: Assuming that no bifurcation points are present, we can set :math:`\xi =
-        -1`.
+        1`. This differs from Brown & Zingg, (2017), but it appears to me that they did
+        an error following equation (8). For :math:`\dot\lambda(s)` to be negative,
+        :math:`\xi` has to be positive.
 
         The partial unit tangent vector for the :math:`\lambda` parametrization is given
         by
@@ -285,7 +306,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
                 given parametrization.
 
         """
-        xi = -1.0
+        xi = 1.0
 
         # Note: The beta pass to :meth:`h_beta_deriv` is only needed for testing.
         b = self.h_beta_deriv(q, dt, q_prev=q_prev, beta=beta)
@@ -480,6 +501,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         q_prev: jnp.ndarray,
         tangent: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
+        **kwargs,
     ) -> float:
         r"""Compute a metric of Newton convergence along the homotopy curve. For example,
         this could be the average curvature or the maximum curvature along the curve.
@@ -501,8 +523,26 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         where the latter is the projection of the maximum admissible step size onto the
         homotopy parameter axis.
 
+        Parameters:
+            beta:
+            q: Current time step solution.
+            dt: Time step size.
+            q_prev: Previous time step solution values. Defaults to the initial
+                condition if not provided.
+            tangent: Tangent vector of the homotopy curve at (q, t + dt) w.r.t. the
+                arclength parametrization. If not provided, it will be computed using
+                the :meth:`tangent` method.
+            parametrization: Parametrization of the homotopy curve. Either "arclength"
+                or "lambda". Defaults to "arclength".
+            **kwargs: Additional keyword arguments to pass to the Newton solver in the
+                convergence metric calculation.
+                - convergence_metric_appleyard_damping: Whether to use Appleyard damping
+                    in the Newton solver for the convergence check. Defaults to False.
+                - convergence_metric_physical_damping: Whether to use physical damping
+                    in the Newton solver for the convergence check. Defaults to False.
+
         Returns:
-            r * tangent_beta: Maximum admissible step size projected onto the homotopy
+            |r * tangent_beta|: Maximum admissible step size projected onto the homotopy
                 parameter axis.
 
         """
@@ -519,7 +559,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             )  # ``shape=(N + 1,)``, includes beta.
         tangent_q = tangent[:-1]
         tangent_beta = float(tangent[-1])
-        assert tangent_beta > 0, f"tangent_beta is negative: {tangent_beta = }"
+        assert tangent_beta < 0, f"tangent_beta is positive: {tangent_beta = }"
 
         # Evaluate the maximum step size along the tangent before lambda becomes
         # negative.
@@ -532,26 +572,36 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         num_evals = 0
 
         # Check whether the largest admissible step size converges.
-        trial_beta = current_beta - max_gamma * tangent_beta
+        trial_beta = current_beta + max_gamma * tangent_beta
         trial_q_init = current_solution + max_gamma * tangent_q
         num_evals += 1
-        if check_newton_convergence(self, trial_beta, trial_q_init, dt, q_prev) >= 1:
+        if (
+            check_newton_convergence(
+                self, trial_beta, trial_q_init, dt, q_prev, **kwargs
+            )
+            >= 1
+        ):
             logger.info(
                 f"Evaluated Newton convergence for {num_evals} candidate gammas"
             )
-            return max_gamma * tangent_beta
+            return abs(max_gamma * tangent_beta)
 
         # Verify that the smallest step converges at all.
-        trial_beta = current_beta - small_gamma * tangent_beta
+        trial_beta = current_beta + small_gamma * tangent_beta
         trial_q_init = current_solution + small_gamma * tangent_q
 
         num_evals += 1
-        if check_newton_convergence(self, trial_beta, trial_q_init, dt, q_prev) == -1:
+        if (
+            check_newton_convergence(
+                self, trial_beta, trial_q_init, dt, q_prev, **kwargs
+            )
+            == -1
+        ):
             # Even the smallest step fails — converged_gamma stays 0.
             logger.info(
                 f"Evaluated Newton convergence for {num_evals} candidate gammas"
             )
-            return converged_gamma * tangent_beta
+            return abs(converged_gamma * tangent_beta)
 
         converged_gamma = small_gamma
 
@@ -559,14 +609,14 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         max_bisection_steps = 5
         for _ in range(max_bisection_steps):
             mid = (lo + hi) / 2.0
-            trial_beta = current_beta - mid * tangent_beta
-
-            # FIXME Is the sign correct here or should it be minus?
+            trial_beta = current_beta + mid * tangent_beta
             trial_q_init = current_solution + mid * tangent_q
             num_evals += 1
-            trial_beta = current_beta - mid * tangent_beta
+
             if (
-                check_newton_convergence(self, trial_beta, trial_q_init, dt, q_prev)
+                check_newton_convergence(
+                    self, trial_beta, trial_q_init, dt, q_prev, **kwargs
+                )
                 != -1
             ):
                 converged_gamma = mid
@@ -576,7 +626,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
 
         logger.info(f"Evaluated Newton convergence for {num_evals} candidate gammas")
 
-        return converged_gamma * tangent_beta
+        return abs(converged_gamma * tangent_beta)
 
     # def find_convergence_region(
     #     model: HCModel,
@@ -639,11 +689,14 @@ def check_newton_convergence(
     q_init: jnp.ndarray,
     dt: float,
     q_prev: jnp.ndarray,
+    **kwargs,
 ) -> int:
     """Check if Newton's method converges for a given model and initial value.
 
     Logging is suppressed during the convergence check to avoid overhead from
     formatting JAX arrays in log messages.
+
+    Note: Newton is run without any damping!
 
     Parameters:
         model: The model to solve.
@@ -651,18 +704,33 @@ def check_newton_convergence(
         q_init: Initial guess for Newton's method.
         dt: Time step size.
         q_prev: Previous time step solution.
+        kwargs: Additional keyword arguments to pass to the Newton solver.
+            - convergence_metric_appleyard_damping: Whether to use Appleyard damping in
+                the Newton solver for the convergence check. Defaults to False.
+            - convergence_metric_physical_damping: Whether to use physical damping in
+                the Newton solver for the convergence check. Defaults to False.
 
     Returns:
         i: Number of iterations taken to converge, -1 if not converged.
 
     """
+    appleyard_damping = kwargs.get("convergence_metric_appleyard_damping", False)
+    physical_damping = kwargs.get("convergence_metric_physical_damping", False)
+
     # Suppress solver logging to avoid expensive JAX array __repr__ calls.
     solver_logger = logging.getLogger("hc_buckleyleverett.buckley_leverett.solvers")
     prev_level = solver_logger.level
     solver_logger.setLevel(logging.WARNING)
     try:
+        kwargs["progressbars"] = False
         _, converged, i = newton(
-            model, q_init, q_prev, dt=dt, progressbars=False, beta=beta
+            model,
+            q_init,
+            q_prev,
+            dt=dt,
+            beta=beta,
+            appleyard_damping=appleyard_damping,
+            physical_damping=physical_damping,
         )
     except ValueError:
         converged = False
