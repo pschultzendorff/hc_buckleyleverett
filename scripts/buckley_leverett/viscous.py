@@ -175,7 +175,8 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             curvature_lambda_fig=curvature_lambda_fig,
             convergence_metric_fig=convergence_metric_fig,
             solver_kwargs={
-                "appleyard": True,
+                "appleyard_damping": True,
+                "physical_damping": True,
                 "progressbars": False,
             },
             plotting_kwargs={
@@ -183,8 +184,8 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
                 "linestyle": ls,
                 "linewidth": linewidth,
                 "label": label,
-                "label_fontsize": 20,
-                "tick_fontsize": 14,
+                "label_fontsize": 24,
+                "tick_fontsize": 18,
             },
         )
 

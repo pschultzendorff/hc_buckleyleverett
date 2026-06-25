@@ -31,10 +31,14 @@ def newton(
     dt: float,
     max_iter: int = 20,
     tol: float = 1e-5,
-    appleyard: bool = False,
+    appleyard_damping: bool = False,
+    physical_damping: bool = False,
     **kwargs,
 ) -> tuple[jnp.ndarray, bool, int]:
     """Solve the system using Newton"s method.
+
+    Parameters:
+        model:
 
     Returns:
         q: The solution at the new time step.
@@ -76,15 +80,16 @@ def newton(
             if jnp.isnan(dx).any() or jnp.isinf(dx).any():
                 raise ValueError("Newton step resulted in NaN or Inf values.")
 
-            # Appleyard damping: Limit cellwise saturation updates to [-0.2, 0.2].
-            if appleyard:
+            if appleyard_damping:
+                # Appleyard damping: Limit cellwise saturation updates to [-0.2, 0.2].
                 dx = jnp.clip(dx, -0.2, 0.2)
 
             q += dx
 
-            # Physical damping: Restrict saturation values to [0,1] (plus small epsilon
-            # to avoid numerical issues).
-            q = jnp.clip(q, 1e-15, 1 - 1e-15)
+            if physical_damping:
+                # Physical damping: Restrict saturation values to [0,1] (plus small
+                # epsilon to avoid numerical issues).
+                q = jnp.clip(q, 1e-15, 1 - 1e-15)
 
     logger.info(
         f"Newton solver for model {model.__class__.__name__} "
@@ -166,7 +171,9 @@ def hc(
 
             if converged:
                 # Store data for the homotopy curve BEFORE updating beta.
-                model.store_curve_data(beta, q, dt, q_prev=q_prev)
+                # Use the same Newton solver kwargs as for the corrector step, so that
+                # the stored data is consistent with the actual solver behavior.
+                model.store_curve_data(beta, q, dt, q_prev=q_prev, **kwargs)
 
                 # Update the homotopy parameter beta only now.
                 beta -= hc_decay

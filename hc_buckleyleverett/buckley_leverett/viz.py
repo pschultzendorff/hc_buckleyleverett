@@ -202,6 +202,7 @@ def plot_curvature(
     curve_parametrization: ArrayLike,
     curvatures: ArrayLike,
     fig: Optional[Figure] = None,
+    ylim_top: Optional[float] = None,
     **kwargs,
 ):
     """Plot arclength-weighted curvature.
@@ -211,6 +212,8 @@ def plot_curvature(
             parametrization) for the x-axis.
         curvatures: Weighted curvature values to plot.
         fig: Existing figure to draw into. A new one is created when ``None``.
+        ylim_top: Optional upper limit for the y-axis. If ``None``, the limit is
+            determined automatically.
         **kwargs: Accepts ``color``, ``ls``, ``linewidth``, ``marker``, ``label``, and
             other matplotlib plot arguments.
 
@@ -236,6 +239,8 @@ def plot_curvature(
     ax.tick_params(axis="x", labelsize=tick_fontsize)
     ax.tick_params(axis="y", labelsize=tick_fontsize)
     ax.set_yscale("log")
+    if ylim_top is not None:
+        ax.set_ylim(top=ylim_top)
 
     # Light grid for good data visibility.
     ax.grid(True, which="both", linestyle=":", alpha=0.3)
@@ -256,6 +261,7 @@ def plot_curvature_lambda(
     curve_parametrization: ArrayLike,
     curvatures: ArrayLike,
     fig: Optional[Figure] = None,
+    ylim_top: Optional[float] = None,
     **kwargs,
 ):
     """Plot arclength-weighted curvature.
@@ -265,6 +271,8 @@ def plot_curvature_lambda(
             parametrization) for the x-axis.
         curvatures: Weighted curvature values to plot.
         fig: Existing figure to draw into. A new one is created when ``None``.
+        ylim_top: Optional upper limit for the y-axis. If ``None``, the limit is
+            determined automatically.
         **kwargs: Accepts ``color``, ``ls``, ``linewidth``, ``marker``, ``label``, and
             other matplotlib plot arguments.
 
@@ -291,6 +299,8 @@ def plot_curvature_lambda(
     ax.tick_params(axis="y", labelsize=tick_fontsize)
     ax.set_yscale("log")
     ax.set_xlim(1, 0)
+    if ylim_top is not None:
+        ax.set_ylim(top=ylim_top)
 
     # Light grid for good data visibility.
     ax.grid(True, which="both", linestyle=":", alpha=0.3)
@@ -380,7 +390,13 @@ def plot_solution_curve(
         The figure containing the 3-D surface plot.
 
     """
-    fig, ax = plt.subplots(1, 1, figsize=(10, 6), subplot_kw={"projection": "3d"})
+    fig, ax = plt.subplots(
+        1,
+        1,
+        figsize=(8, 6),
+        subplot_kw={"projection": "3d"},
+        constrained_layout=True,
+    )
 
     solutions = jnp.asarray(solutions)
 
@@ -392,7 +408,7 @@ def plot_solution_curve(
     X, Y = jnp.meshgrid(X, Y)
 
     # Saturation plot.
-    surf2 = ax.plot_surface(  # type: ignore  # Axes3D methods not in matplotlib stubs
+    surf = ax.plot_surface(  # type: ignore  # Axes3D methods not in matplotlib stubs
         X,
         Y,
         solutions.swapaxes(0, 1),
@@ -408,9 +424,11 @@ def plot_solution_curve(
     ax.tick_params(axis="z", labelsize=tick_fontsize)  # type: ignore  # Axes3D method
     ax.set_xlim(1, 0)
     ax.view_init(elev=30, azim=-45)  # type: ignore  # Axes3D method
-    fig.colorbar(surf2, ax=ax, shrink=0.6, aspect=10, pad=0.075)
 
-    fig.tight_layout()
+    if kwargs.get("colorbar", False):
+        cbar = fig.colorbar(mappable=surf, ax=ax, shrink=0.6, aspect=10, pad=0.075)
+        cbar.ax.tick_params(labelsize=tick_fontsize)
+
     return fig
 
 
@@ -438,7 +456,13 @@ def plot_residual_curve(
         The figure containing the 3-D residual surface plot.
 
     """
-    fig, ax = plt.subplots(1, 1, figsize=(10, 6), subplot_kw={"projection": "3d"})
+    fig, ax = plt.subplots(
+        1,
+        1,
+        figsize=(8, 6),
+        subplot_kw={"projection": "3d"},
+        constrained_layout=True,
+    )
 
     solutions = jnp.asarray(solutions)
 
@@ -476,9 +500,11 @@ def plot_residual_curve(
     ax.tick_params(axis="z", labelsize=tick_fontsize)  # type: ignore  # Axes3D method
     ax.set_xlim(1, 0)
     ax.view_init(elev=30, azim=-45)  # type: ignore  # Axes3D method
-    fig.colorbar(surf, ax=ax, shrink=0.6, aspect=10, pad=0.075)
 
-    fig.tight_layout()
+    if kwargs.get("colorbar", False):
+        cbar = fig.colorbar(mappable=surf, ax=ax, shrink=0.6, aspect=10, pad=0.075)
+        cbar.ax.tick_params(labelsize=tick_fontsize)
+
     return fig
 
 
@@ -486,11 +512,13 @@ def solve_and_plot(
     model: HCModelandAnalysisProtocol,
     final_time: float,
     curvature_fig: Optional[Figure] = None,
+    curvature_fig_reduced: Optional[Figure] = None,
     curvature_lambda_fig: Optional[Figure] = None,
     convergence_metric_fig: Optional[Figure] = None,
     solver_kwargs: Optional[dict] = None,
     plotting_kwargs: Optional[dict] = None,
 ) -> tuple[
+    Optional[Figure],
     Optional[Figure],
     Optional[Figure],
     Optional[Figure],
@@ -511,6 +539,8 @@ def solve_and_plot(
         final_time: Simulation end time (a single time step of this size is taken).
         curvature_fig: Existing curvature figure to draw into.  A new one is
             created when ``None``.
+        curvature_fig_reduced: Existing curvature figure with reduced view to draw into.
+            A new one is created when ``None``.
         curvature_lambda_fig: Existing curvature figure for lambda-parametrization to
             draw into. A new one is created when ``None``.
         convergence_metric_fig: Existing convergence metric figure to draw into.
@@ -520,8 +550,9 @@ def solve_and_plot(
             :func:`plot_convergence_metric`.
 
     Returns:
-        ``(solution_curve_fig, residual_curve_fig, curvature_fig, convergence_metric_fig)``.
-        The first two entries are ``None`` when the solver converges in a single step.
+        ``(solution_curve_fig, residual_curve_fig, curvature_fig, curvature_fig_reduced,
+        curvature_lambda_fig, convergence_metric_fig)``. The first two entries are
+        ``None`` when the solver converges in a single step.
 
     """
     solver_kwargs = solver_kwargs or {}
@@ -545,10 +576,15 @@ def solve_and_plot(
     # Plotting:
     if len(model.betas) > 1:
         solution_curve_fig = plot_solution_curve(
-            intermediate_solutions, model.betas, model
+            intermediate_solutions, model.betas, model, **plotting_kwargs
         )
         residual_curve_fig = plot_residual_curve(
-            intermediate_solutions, model.betas, model, final_time, model.s_initial
+            intermediate_solutions,
+            model.betas,
+            model,
+            final_time,
+            model.s_initial,
+            **plotting_kwargs,
         )
 
         arclengths = relative_arclengths(model.betas, intermediate_solutions)
@@ -561,10 +597,19 @@ def solve_and_plot(
 
         scaled_newton_rs = jnp.asarray(model.newton_rs) / jnp.asarray(model.betas)
 
+        ylim_top = plotting_kwargs.pop("ylim_top")
+
         curvature_fig = plot_curvature(
             arclengths,
             curvatures,
             fig=curvature_fig,
+            **plotting_kwargs,
+        )
+        curvature_fig_reduced = plot_curvature(
+            arclengths,
+            curvatures,
+            fig=curvature_fig_reduced,
+            ylim_top=ylim_top,
             **plotting_kwargs,
         )
         curvature_lambda_fig = plot_curvature_lambda(
@@ -585,13 +630,21 @@ def solve_and_plot(
             solution_curve_fig,
             residual_curve_fig,
             curvature_fig,
+            curvature_fig_reduced,
             curvature_lambda_fig,
             convergence_metric_fig,
         )
 
     # If only the initial or none HC step converged, skip plotting.
     else:
-        return None, None, curvature_fig, curvature_lambda_fig, convergence_metric_fig
+        return (
+            None,
+            None,
+            curvature_fig,
+            curvature_fig_reduced,
+            curvature_lambda_fig,
+            convergence_metric_fig,
+        )
 
 
 def plot_convergence_tube_with_path(
