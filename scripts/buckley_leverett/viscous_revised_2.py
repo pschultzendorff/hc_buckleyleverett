@@ -182,7 +182,7 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             curvature_lambda_fig=curvature_lambda_fig,
             convergence_metric_fig=convergence_metric_fig,
             solver_kwargs={
-                "appleyard": False,
+                "appleyard_damping": False,
                 "physical_damping": True,
                 "progressbars": False,
                 "hc_max_iter": 101,

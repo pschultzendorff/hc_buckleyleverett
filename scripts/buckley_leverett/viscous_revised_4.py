@@ -16,7 +16,7 @@ from hc_buckleyleverett.buckley_leverett.viz import solve_and_plot
 logging.basicConfig(level=logging.INFO)
 
 results_dir = (
-    pathlib.Path(__file__).parent.parent.parent / "results" / "viscous_revised_1"
+    pathlib.Path(__file__).parent.parent.parent / "results" / "viscous_revised_4"
 )
 results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -38,9 +38,7 @@ model_params: dict[str, Any] = {
     "num_cells": NUM_CELLS,
     "domain_size": 1.0,
     # Rel. perm. model parameters:
-    "rp_model": "Corey",
-    "n1": 2.0,
-    "n2": 2.0,
+    "rp_model": "Brooks-Corey",
     # Permeability, which is ignored since gravity is zero:
     "permeability": 1.0,
     # Buoyancy parameters; NO GRAVITY:
@@ -183,12 +181,12 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             convergence_metric_fig=convergence_metric_fig,
             solver_kwargs={
                 "appleyard_damping": False,
-                "physical_damping": False,
+                "physical_damping": True,
                 "progressbars": False,
                 "hc_max_iter": 101,
                 "hc_decay": 1 / 100,
                 "convergence_metric_appleyard_damping": False,
-                "convergence_metric_physical_damping": False,
+                "convergence_metric_physical_damping": True,
             },
             plotting_kwargs={
                 "color": color,

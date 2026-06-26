@@ -136,6 +136,7 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
     case_dir_final_time.mkdir(exist_ok=True)
 
     curvature_fig, _ = plt.subplots(1, 1, figsize=(10, 6))
+    curvature_fig_reduced, _ = plt.subplots(1, 1, figsize=(10, 6))
     curvature_lambda_fig, _ = plt.subplots(1, 1, figsize=(10, 6))
     convergence_metric_fig, _ = plt.subplots(1, 1, figsize=(10, 6))
 
@@ -166,12 +167,14 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             solution_fig,
             residual_fig,
             curvature_fig,
+            curvature_fig_reduced,
             curvature_lambda_fig,
             convergence_metric_fig,
         ) = solve_and_plot(
             model,  # type: ignore
             final_time=FINAL_TIME,
             curvature_fig=curvature_fig,
+            curvature_fig_reduced=curvature_fig_reduced,
             curvature_lambda_fig=curvature_lambda_fig,
             convergence_metric_fig=convergence_metric_fig,
             solver_kwargs={
