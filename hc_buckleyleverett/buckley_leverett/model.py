@@ -152,7 +152,7 @@ class BuckleyLeverettModel:
         elif rp_model == "Corey":
             k_w = jnp.where(s >= 0, s**self.nw, 0.0)
         elif rp_model == "linear":
-            k_w = s
+            k_w = jnp.where(s >= 0, s, 0.0)
         else:
             raise ValueError(f"Unknown relative permeability model: {rp_model}")
         # Handle NaN values.
@@ -171,7 +171,7 @@ class BuckleyLeverettModel:
         elif rp_model == "Corey":
             k_n = jnp.where(s <= 1, (1 - s) ** self.nn, 0.0)
         elif rp_model == "linear":
-            k_n = 1 - s
+            k_n = jnp.where(s <= 1, 1 - s, 0.0)
         else:
             raise ValueError(f"Unknown relative permeability model: {rp_model}")
         # Handle NaN values.

@@ -77,7 +77,7 @@ class LinearRelPermHCMixin(HCMixin):
 
     """
 
-    def mobility_w(self, s, **kwargs):
+    def mobility_w(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
         beta = kwargs["beta"]
         # Ingore pylance error; self is a valid BuckleyLeverettModel at runtime via MRO.
         return beta * BuckleyLeverettModel.mobility_w(
@@ -86,7 +86,7 @@ class LinearRelPermHCMixin(HCMixin):
             rp_model="linear",
         ) + (1 - beta) * BuckleyLeverettModel.mobility_w(self, s)  # type: ignore[arg-type]
 
-    def mobility_n(self, s, **kwargs):
+    def mobility_n(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
         beta = kwargs["beta"]
         # Ingore pylance error; self is a valid BuckleyLeverettModel at runtime via MRO.
         return beta * BuckleyLeverettModel.mobility_n(

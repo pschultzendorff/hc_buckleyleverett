@@ -29,7 +29,7 @@ def newton(
     q_init: jnp.ndarray,
     q_prev: jnp.ndarray,
     dt: float,
-    max_iter: int = 20,
+    max_iter: int = 30,
     tol: float = 1e-5,
     appleyard_damping: bool = False,
     physical_damping: bool = False,
@@ -260,7 +260,7 @@ def solve(
     final_time: float,
     num_time_steps: int,
     **kwargs,
-):
+) -> tuple[list[jnp.ndarray], bool]:
     # Setup the simulation.
     dt = final_time / num_time_steps
     solutions: list[jnp.ndarray] = [model.s_initial]

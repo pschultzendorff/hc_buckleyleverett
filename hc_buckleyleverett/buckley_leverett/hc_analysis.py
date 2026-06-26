@@ -714,15 +714,21 @@ def check_newton_convergence(
         i: Number of iterations taken to converge, -1 if not converged.
 
     """
-    appleyard_damping = kwargs.get("convergence_metric_appleyard_damping", False)
-    physical_damping = kwargs.get("convergence_metric_physical_damping", False)
+    # Make sure that the damping setting outside of this function do not affect the
+    # convergence check.
+    kwargs_copy = kwargs.copy()
+    appleyard_damping = kwargs_copy.get("convergence_metric_appleyard_damping", False)
+    physical_damping = kwargs_copy.get("convergence_metric_physical_damping", False)
+    del kwargs_copy["appleyard_damping"]
+    del kwargs_copy["physical_damping"]
+    # Avoid clogging the output during repeated convergence checks.
+    kwargs_copy["progressbars"] = False
 
     # Suppress solver logging to avoid expensive JAX array __repr__ calls.
     solver_logger = logging.getLogger("hc_buckleyleverett.buckley_leverett.solvers")
     prev_level = solver_logger.level
     solver_logger.setLevel(logging.WARNING)
     try:
-        kwargs["progressbars"] = False
         _, converged, i = newton(
             model,
             q_init,
@@ -731,6 +737,7 @@ def check_newton_convergence(
             beta=beta,
             appleyard_damping=appleyard_damping,
             physical_damping=physical_damping,
+            **kwargs_copy,
         )
     except ValueError:
         converged = False
