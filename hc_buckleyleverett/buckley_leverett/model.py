@@ -142,7 +142,7 @@ class BuckleyLeverettModel:
         logger.info(f"Gravity number: {self.gravity_number:.4f}")
 
     def mobility_w(
-        self, s: jnp.ndarray, rp_model: Optional[str] = None, **kwargs
+        self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
     ) -> jnp.ndarray:
         """Mobility of the wetting phase."""
         if rp_model is None:
@@ -159,7 +159,7 @@ class BuckleyLeverettModel:
         return jnp.nan_to_num(k_w / self.mu_w, nan=0.0)  # type: ignore  # jnp.nan_to_num returns ndarray
 
     def mobility_n(
-        self, s: jnp.ndarray, rp_model: Optional[str] = None, **kwargs
+        self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
     ) -> jnp.ndarray:
         """Mobility of the nonwetting phase."""
         if rp_model is None:
@@ -177,7 +177,9 @@ class BuckleyLeverettModel:
         # Handle NaN values.
         return jnp.nan_to_num(k_n / self.mu_n, nan=0.0)  # type: ignore  # jnp.nan_to_num returns ndarray
 
-    def fractional_flow(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
+    def fractional_flow(
+        self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
+    ) -> jnp.ndarray:
         r"""Compute the fractional flow function including buoyancy.
 
         .. math::
@@ -194,13 +196,17 @@ class BuckleyLeverettModel:
             Fractional flow values (dimensionless).
 
         """
-        m_w = self.mobility_w(s, **kwargs)
-        m_n = self.mobility_n(s, **kwargs)
+        m_w = self.mobility_w(s, rp_model=rp_model, beta=beta)
+        m_n = self.mobility_n(s, rp_model=rp_model, beta=beta)
         m_t = m_w + m_n
         viscous_flow = m_w / m_t
+
+        # FIXME Fix this for gravity and make it consistent with
+        # ``compute_face_fluxes``.
         buoyancy_flow = (
             (m_w * m_n) / (m_t * self.mu_n) * self.gravity_number / self.total_flow
         )
+
         return viscous_flow - buoyancy_flow
 
     def face_transmissibility(self) -> jnp.ndarray:
@@ -211,7 +217,7 @@ class BuckleyLeverettModel:
             T: Face transmissibilities.
 
         """
-        area = 1.0
+        area = 1.0  # Assuming unit area for 1D problem.
         dx = self.domain_size / self.num_cells
 
         if isinstance(self.permeability, jnp.ndarray):
@@ -220,11 +226,13 @@ class BuckleyLeverettModel:
                 (2 * area / dx) * (self.permeability[:-1] * self.permeability[1:])
             ) / (self.permeability[:-1] + self.permeability[1:])
         else:
-            transmissibilities = self.permeability * jnp.ones(self.num_cells + 1)
+            transmissibilities = self.permeability * jnp.full(
+                (self.num_cells + 1,), 2 * area / dx
+            )
 
         return transmissibilities
 
-    def compute_face_fluxes(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
+    def compute_face_fluxes(self, s: jnp.ndarray, beta: float = 0.0) -> jnp.ndarray:
         """Compute wetting phase fluxes at cell interfaces.
 
         When gravity is zero, total-flux upwinding is used (mobilities evaluated at the
@@ -233,6 +241,7 @@ class BuckleyLeverettModel:
 
         Args:
             s: Approximate cell saturations.
+            beta: Homotopy parameter for continuation method. Defaults to 0.0.
 
         Returns:
             F_w: Wetting phase fluxes at cell interfaces.
@@ -243,18 +252,20 @@ class BuckleyLeverettModel:
 
         if self.G == 0:
             # Total-flux upwinding: mobilities evaluated at the left cell.
-            m_w = self.mobility_w(s, **kwargs)
-            m_n = self.mobility_n(s, **kwargs)
+            m_w = self.mobility_w(s, beta=beta)
+            m_n = self.mobility_n(s, beta=beta)
         else:
             # Phase-potential upwinding (Brenier & Jaffré).
-            m_w, m_n = self.upwind(s, **kwargs)
+            m_w, m_n = self.upwind(s, beta=beta)
 
         m_t = m_n + m_w
 
         # Viscous wetting flux.
-        F_w_viscous = (self.total_flow / self.porosity) * (m_w / m_t)
+        F_w_viscous = self.total_flow * (m_w / m_t)
 
         # Buoyancy wetting flux.
+        # FIXME Fix this for gravity and make it consistent with
+        # ``fractional_flow``.
         dx = self.domain_size / self.num_cells
         transmissibilities = self.face_transmissibility()
 
@@ -265,7 +276,9 @@ class BuckleyLeverettModel:
 
         return F_w_viscous - F_w_buoyancy
 
-    def upwind(self, s: jnp.ndarray, **kwargs) -> tuple[jnp.ndarray, jnp.ndarray]:
+    def upwind(
+        self, s: jnp.ndarray, beta: float = 0.0
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
         r"""Determine upwinded face mobilities via phase-potential upwinding.
 
         The upwind direction is determined per-phase using the fractional flow
@@ -307,10 +320,10 @@ class BuckleyLeverettModel:
         s_right = s_extended[1:]  # shape (N+1,)
 
         # Mobilities evaluated at left and right cells (4 evaluations total).
-        m_w_left = self.mobility_w(s_left, **kwargs)
-        m_w_right = self.mobility_w(s_right, **kwargs)
-        m_n_left = self.mobility_n(s_left, **kwargs)
-        m_n_right = self.mobility_n(s_right, **kwargs)
+        m_w_left = self.mobility_w(s_left, beta=beta)
+        m_w_right = self.mobility_w(s_right, beta=beta)
+        m_n_left = self.mobility_n(s_left, beta=beta)
+        m_n_right = self.mobility_n(s_right, beta=beta)
 
         # Derive fractional flow at the left cell from already-computed mobilities
         # (avoids a redundant fractional_flow call that would re-evaluate mobilities).
@@ -330,34 +343,40 @@ class BuckleyLeverettModel:
         return m_w, m_n
 
     def residual(
-        self, q: jnp.ndarray, dt: float, q_prev: Optional[jnp.ndarray] = None, **kwargs
+        self,
+        q: jnp.ndarray,
+        dt: float,
+        q_prev: jnp.ndarray,
+        beta: float = 0.0,
     ) -> jnp.ndarray:
         """Compute the residual of the Buckley-Leverett system at (q, t + dt)
 
         Parameters:
             q: Current solution values.
             dt: Time step size.
-            q_prev: Previous time step solution. Defaults to the initial condition if
-                not provided.
+            q_prev: Previous time step solution.
+            beta: Homotopy parameter for continuation method. Defaults to 0.0.
 
         Returns:
             r: Residual vector.
 
         """
 
-        if q_prev is None:
-            q_prev = self.s_initial.copy()
-
         # Compute fluxes.
-        F_w = self.compute_face_fluxes(q, **kwargs)
+        F_w = self.compute_face_fluxes(q, beta)
+        dx = self.domain_size / self.num_cells
 
         # Residuals for flow and transport equations.
-        r = (q - q_prev) / dt + F_w[1:] - F_w[:-1]
+        r = self.porosity * (q - q_prev) / dt + (F_w[1:] - F_w[:-1]) / dx
 
         return r
 
     def jacobian(
-        self, q: jnp.ndarray, dt: float, q_prev: Optional[jnp.ndarray] = None, **kwargs
+        self,
+        q: jnp.ndarray,
+        dt: float,
+        q_prev: jnp.ndarray,
+        beta: float = 0.0,
     ) -> jnp.ndarray:
         """Compute the Jacobian of the system at (q, t + dt) using automatic
         differentiation.
@@ -368,13 +387,19 @@ class BuckleyLeverettModel:
         Parameters:
             q: Current saturation values.
             dt: Time step size.
-            q_prev: Previous saturation values. Defaults to the initial condition if not
-            provided.
+            q_prev: Previous saturation values.
+            beta: Homotopy parameter for continuation method. Defaults to 0.0.
 
         Returns:
             J: Jacobian matrix.
 
         """
+
         if not hasattr(self, "_jacrev_fn"):
-            self._jacrev_fn = jax.jacrev(self.residual, argnums=0)
-        return self._jacrev_fn(q, dt, q_prev=q_prev, **kwargs)
+
+            def wrapped(q, dt, q_prev, beta):
+                return self.residual(q, dt, q_prev=q_prev, beta=beta)
+
+            self._jacrev_fn = jax.jacrev(wrapped)
+
+        return self._jacrev_fn(q, dt, q_prev, beta)

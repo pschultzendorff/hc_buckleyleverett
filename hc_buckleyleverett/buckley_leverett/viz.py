@@ -437,7 +437,7 @@ def plot_residual_curve(
     betas: ArrayLike,
     model: HCModelProtocol,
     dt: float,
-    q_prev: Optional[jnp.ndarray] = None,
+    q_prev: jnp.ndarray,
     **kwargs,
 ) -> Figure:
     r"""Plot cell-wise transport residuals along the homotopy path as a 3-D surface.

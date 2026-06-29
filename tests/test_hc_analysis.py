@@ -49,15 +49,15 @@ class MockHelixModel(HCAnalysisMixin):
         # and requires a full BuckleyLeverettModel).
         pass
 
-    def jacobian(self, q, dt, q_prev=None, **kwargs):
+    def jacobian(self, q, dt, q_prev, **kwargs):
         r""":math:`\nabla_{\mathbf{q}} \mathcal{H} = [[2\mathbf{q}_1, 2\mathbf{q}_2], [1, 0]]`."""
         return jnp.array([[2.0 * q[0], 2.0 * q[1]], [1.0, 0.0]])
 
-    def h_beta_deriv(self, q, dt, q_prev=None, **kwargs):
+    def h_beta_deriv(self, q, dt, q_prev, **kwargs):
         r""":math:`\partial \mathcal{H} / \partial \lambda = (0, \sin\lambda)`."""
         return jnp.array([0.0, jnp.sin(kwargs["beta"])])
 
-    def hc_hessian_tensor_fn(self, q, dt, q_prev=None, **kwargs):
+    def hc_hessian_tensor_fn(self, q, dt, q_prev, **kwargs):
         r"""Full :math:`(N+1) \times (N+1)` Hessian tensor per residual component.
 
         Component 0 (:math:`\mathcal{H}_0 = \mathbf{q}_1^2 + \mathbf{q}_2^2 - 1`):
@@ -101,7 +101,8 @@ def helix_point(request):
     model = MockHelixModel()  # type: ignore
     q = jnp.array([jnp.cos(beta), jnp.sin(beta)])
     dt = 1.0  # dt is unused by the mock but required by the API
-    return model, q, dt, beta
+    qprev = jnp.array([0.0, 0.0])  # qprev is unused by the mock but required by the API
+    return model, q, dt, beta, qprev
 
 
 # Tolerance for floating-point comparison.
@@ -115,8 +116,8 @@ def test_arclength_tangent_values(helix_point):
     r"""arclength tangent matches analytical
     :math:`(\sin\lambda / \sqrt{2},\; -\cos\lambda / \sqrt{2},\; -1/\sqrt{2})`.
     """
-    model, q, dt, beta = helix_point
-    t = model.tangent(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    t = model.tangent(beta, q, dt, qprev, parametrization="arclength")
 
     expected = jnp.array(
         [
@@ -130,8 +131,8 @@ def test_arclength_tangent_values(helix_point):
 
 def test_arclength_tangent_is_unit_vector(helix_point):
     """Test that the arclength tangent has unit norm."""
-    model, q, dt, beta = helix_point
-    t = model.tangent(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    t = model.tangent(beta, q, dt, qprev, parametrization="arclength")
     np.testing.assert_allclose(jnp.linalg.norm(t), 1.0, atol=ATOL)
 
 
@@ -139,8 +140,8 @@ def test_beta_tangent_values(helix_point):
     r"""Test that the :math:`\beta` tangent matches analytical
     :math:`(\sin\lambda,\; -\cos\lambda)`.
     """
-    model, q, dt, beta = helix_point
-    t = model.tangent(beta, q, dt, parametrization="lambda")
+    model, q, dt, beta, qprev = helix_point
+    t = model.tangent(beta, q, dt, qprev, parametrization="lambda")
 
     expected = jnp.array([jnp.sin(beta), -jnp.cos(beta)])
     np.testing.assert_allclose(t, expected, atol=ATOL)
@@ -150,16 +151,16 @@ def test_beta_tangent_norm(helix_point):
     r"""Test that the :math:`\beta` tangent norm equals :math:`1` (radius of the unit
     circle).
     """
-    model, q, dt, beta = helix_point
-    t = model.tangent(beta, q, dt, parametrization="lambda")
+    model, q, dt, beta, qprev = helix_point
+    t = model.tangent(beta, q, dt, qprev, parametrization="lambda")
     np.testing.assert_allclose(jnp.linalg.norm(t), 1.0, atol=ATOL)
 
 
 def test_tangent_invalid_parametrization_raises(helix_point):
     """Test that an invalid parametrization raises :class:`NotImplementedError`."""
-    model, q, dt, beta = helix_point
+    model, q, dt, beta, qprev = helix_point
     with pytest.raises(NotImplementedError):
-        model.tangent(beta, q, dt, parametrization="invalid")
+        model.tangent(beta, q, dt, qprev, parametrization="invalid")
 
 
 # Curvature-vector tests:
@@ -169,8 +170,8 @@ def test_arclength_curvature_vector_values(helix_point):
     r"""arclength curvature vector matches analytical
     :math:`(-\cos\lambda / 2,\; -\sin\lambda / 2,\; 0)`.
     """
-    model, q, dt, beta = helix_point
-    kv = model.curvature_vector(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    kv = model.curvature_vector(beta, q, dt, qprev, parametrization="arclength")
 
     expected = jnp.array([-jnp.cos(beta), -jnp.sin(beta), 0.0]) / 2.0
     np.testing.assert_allclose(kv, expected, atol=ATOL)
@@ -180,8 +181,8 @@ def test_beta_curvature_vector_values(helix_point):
     r"""Test that the partial :math:`\beta` curvature vector matches analytical
     :math:`(-\cos\lambda,\; -\sin\lambda)`.
     """
-    model, q, dt, beta = helix_point
-    kv = model.curvature_vector(beta, q, dt, parametrization="lambda")
+    model, q, dt, beta, qprev = helix_point
+    kv = model.curvature_vector(beta, q, dt, qprev, parametrization="lambda")
 
     expected = jnp.array([-jnp.cos(beta), -jnp.sin(beta)])
     np.testing.assert_allclose(kv, expected, atol=ATOL)
@@ -191,17 +192,17 @@ def test_arclength_curvature_vector_orthogonal_to_tangent(helix_point):
     r"""Test that the arclength curvature vector :math:`\ddot{c}(s)` is orthogonal to
     the tangent :math:`\dot{c}(s)`.
     """
-    model, q, dt, beta = helix_point
-    t = model.tangent(beta, q, dt, parametrization="arclength")
-    kv = model.curvature_vector(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    t = model.tangent(beta, q, dt, qprev, parametrization="arclength")
+    kv = model.curvature_vector(beta, q, dt, qprev, parametrization="arclength")
     np.testing.assert_allclose(jnp.dot(t, kv), 0.0, atol=ATOL)
 
 
 def test_curvature_vector_invalid_parametrization_raises(helix_point):
     """Test that an invalid parametrization raises :class:`NotImplementedError`."""
-    model, q, dt, beta = helix_point
+    model, q, dt, beta, qprev = helix_point
     with pytest.raises(NotImplementedError):
-        model.curvature_vector(beta, q, dt, parametrization="invalid")
+        model.curvature_vector(beta, q, dt, qprev, parametrization="invalid")
 
 
 # Curvature (scalar) tests:
@@ -209,8 +210,8 @@ def test_curvature_vector_invalid_parametrization_raises(helix_point):
 
 def test_arclength_curvature_value(helix_point):
     r"""Test that the arclength curvature is :math:`\kappa = 1/2` for the unit helix."""
-    model, q, dt, beta = helix_point
-    kappa = model.curvature(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    kappa = model.curvature(beta, q, dt, qprev, parametrization="arclength")
     np.testing.assert_allclose(float(kappa), 0.5, atol=ATOL)
 
 
@@ -218,8 +219,8 @@ def test_beta_curvature_value(helix_point):
     r"""Test that the partial :math:`\lambda` curvature is :math:`\kappa_\mathbf{q} = 1`
     for the unit helix.
     """
-    model, q, dt, beta = helix_point
-    kappa = model.curvature(beta, q, dt, parametrization="lambda")
+    model, q, dt, beta, qprev = helix_point
+    kappa = model.curvature(beta, q, dt, qprev, parametrization="lambda")
     np.testing.assert_allclose(float(kappa), 1.0, atol=ATOL)
 
 
@@ -228,20 +229,20 @@ def test_beta_curvature_value(helix_point):
 
 def test_tangent_with_precomputed_jac(helix_point):
     """Passing a precomputed Jacobian gives the same tangent."""
-    model, q, dt, beta = helix_point
-    jac = model.jacobian(q, dt, beta=beta)
-    t1 = model.tangent(beta, q, dt, parametrization="arclength")
-    t2 = model.tangent(beta, q, dt, jac=jac, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    jac = model.jacobian(q, dt, qprev, beta=beta)
+    t1 = model.tangent(beta, q, dt, qprev, parametrization="arclength")
+    t2 = model.tangent(beta, q, dt, qprev, jac=jac, parametrization="arclength")
     np.testing.assert_allclose(t1, t2, atol=ATOL)
 
 
 def test_curvature_vector_with_precomputed_jac_and_tangent(helix_point):
     """Passing precomputed jac and tangent gives the same curvature vector."""
-    model, q, dt, beta = helix_point
-    jac = model.jacobian(q, dt, beta=beta)
-    t = model.tangent(beta, q, dt, jac=jac, parametrization="arclength")
-    kv1 = model.curvature_vector(beta, q, dt, parametrization="arclength")
+    model, q, dt, beta, qprev = helix_point
+    jac = model.jacobian(q, dt, qprev, beta=beta)
+    t = model.tangent(beta, q, dt, qprev, jac=jac, parametrization="arclength")
+    kv1 = model.curvature_vector(beta, q, dt, qprev, parametrization="arclength")
     kv2 = model.curvature_vector(
-        beta, q, dt, jac=jac, tangent=t, parametrization="arclength"
+        beta, q, dt, qprev, jac=jac, tangent=t, parametrization="arclength"
     )
     np.testing.assert_allclose(kv1, kv2, atol=ATOL)

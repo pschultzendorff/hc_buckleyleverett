@@ -29,10 +29,11 @@ def newton(
     q_init: jnp.ndarray,
     q_prev: jnp.ndarray,
     dt: float,
-    max_iter: int = 30,
+    max_iter: int = 100,
     tol: float = 1e-5,
     appleyard_damping: bool = False,
     physical_damping: bool = False,
+    beta: float = 0.0,
     **kwargs,
 ) -> tuple[jnp.ndarray, bool, int]:
     """Solve the system using Newton"s method.
@@ -64,7 +65,7 @@ def newton(
 
     with logging_redirect_tqdm([logger]):
         for i in newton_progressbar:
-            r = model.residual(q, dt=dt, q_prev=q_prev, **kwargs)
+            r = model.residual(q, dt=dt, q_prev=q_prev, beta=beta)
             residual_norm = float(jnp.linalg.norm(r) / jnp.sqrt(r.size))
             newton_progressbar.set_postfix({"residual_norm": residual_norm})
 
@@ -73,7 +74,7 @@ def newton(
                 break
 
             # Newton step:
-            J = model.jacobian(q, dt=dt, q_prev=q_prev, **kwargs)
+            J = model.jacobian(q, dt=dt, q_prev=q_prev, beta=beta)
             model.linear_system = (J, r)
             dx = jnp.linalg.solve(J, -r)
 
@@ -214,6 +215,7 @@ def grid_search(
         q_best: The best initial guess found from the grid search.
 
     """
+    beta: float = 0.0
     num_s_initial = kwargs.get("num_s_initial", 10)
 
     s_inits = jnp.stack(
@@ -241,7 +243,7 @@ def grid_search(
             )
             if converged:
                 r_candidate = model.residual(
-                    q_candidate, dt=dt, q_prev=q_prev, **kwargs
+                    q_candidate, dt=dt, q_prev=q_prev, beta=beta
                 )
                 residual_norm = jnp.linalg.norm(r_candidate) / jnp.sqrt(
                     r_candidate.size
@@ -263,7 +265,7 @@ def solve(
 ) -> tuple[list[jnp.ndarray], bool]:
     # Setup the simulation.
     dt = final_time / num_time_steps
-    solutions: list[jnp.ndarray] = [model.s_initial]
+    solutions: list[jnp.ndarray] = [model.s_initial.copy()]
     model.reset()
     solver = hc if isinstance(model, HCMixin) else newton
 

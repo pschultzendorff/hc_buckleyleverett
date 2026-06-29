@@ -10,6 +10,7 @@ if not typing.TYPE_CHECKING:
 
     class HCProtocol: ...
 
+    class HCModelProtocol(BuckleyLeverettModelProtocol, HCProtocol): ...
 
 else:
 
@@ -39,18 +40,20 @@ else:
             ...
 
         def mobility_w(
-            self, s: jnp.ndarray, rp_model: Optional[str] = None
+            self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
         ) -> jnp.ndarray:
             """Mobility of the wetting phase."""
             ...
 
         def mobility_n(
-            self, s: jnp.ndarray, rp_model: Optional[str] = None
+            self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
         ) -> jnp.ndarray:
             """Mobility of the nonwetting phase."""
             ...
 
-        def fractional_flow(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
+        def fractional_flow(
+            self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
+        ) -> jnp.ndarray:
             """Compute the fractional flow function including buoyancy."""
             ...
 
@@ -61,11 +64,12 @@ else:
             """
             ...
 
-        def compute_face_fluxes(self, s: jnp.ndarray) -> jnp.ndarray:
+        def compute_face_fluxes(self, s: jnp.ndarray, beta: float = 0.0) -> jnp.ndarray:
             """Compute wetting phase fluxes at cell interfaces.
 
             Args:
                 s: Approximate cell saturations.
+                beta: Homotopy parameter.
 
             Returns:
                 F_w: Wetting phase fluxes at cell interfaces.
@@ -74,13 +78,21 @@ else:
             ...
 
         def residual(
-            self, q: jnp.ndarray, dt: float, q_prev: jnp.ndarray | None = None, **kwargs
+            self,
+            q: jnp.ndarray,
+            dt: float,
+            q_prev: jnp.ndarray,
+            beta: float = 0.0,
         ) -> jnp.ndarray:
             """Compute the residual of the Buckley-Leverett system at (q, t + dt)"""
             ...
 
         def jacobian(
-            self, q: jnp.ndarray, dt: float, q_prev: jnp.ndarray | None = None, **kwargs
+            self,
+            q: jnp.ndarray,
+            dt: float,
+            q_prev: jnp.ndarray,
+            beta: float = 0.0,
         ) -> jnp.ndarray:
             """Compute the Jacobian of the system at (q, t + dt) using automatic
             differentiation."""
@@ -103,7 +115,7 @@ else:
             beta: float,
             q: jnp.ndarray,
             dt: float,
-            q_prev: Optional[jnp.ndarray] = None,
+            q_prev: jnp.ndarray,
         ) -> None:
             """Store the homotopy curve data at the current point."""
             ...

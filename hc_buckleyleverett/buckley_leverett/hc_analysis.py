@@ -25,10 +25,7 @@ from typing import Any, Callable, Optional
 import jax
 import jax.numpy as jnp
 
-from hc_buckleyleverett.buckley_leverett.protocol import (
-    BuckleyLeverettModelProtocol,
-    HCProtocol,
-)
+from hc_buckleyleverett.buckley_leverett.protocol import HCModelProtocol
 from hc_buckleyleverett.buckley_leverett.solvers import newton
 
 logger = logging.getLogger(__name__)
@@ -118,7 +115,7 @@ def apply_hessian(H: jax.Array, u: jax.Array, v: jax.Array) -> jax.Array:
     return jnp.einsum("ijk,j,k->i", H, u, v)
 
 
-class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
+class HCAnalysisMixin(HCModelProtocol):
     r"""Mixin for analyzing curvature and Newton convergence along the HC curve.
 
     Note: To compute the tangent and curvature, it would be cleaner to define two
@@ -158,7 +155,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         beta: float,
         q: jnp.ndarray,
         dt: float,
-        q_prev: Optional[jnp.ndarray] = None,
+        q_prev: jnp.ndarray,
         parametrization: str = "arclength",
         **kwargs,
     ) -> None:
@@ -168,8 +165,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             beta: Current homotopy parameter value.
             q: Current time step solution.
             dt: Time step size.
-            q_prev: Previous time step solution values. Defaults to the initial
-                condition if not provided.
+            q_prev: Previous time step solution values.
             parametrization: Parametrization of the homotopy curve. Either "arclength
                 or "lambda". Defaults to "arclength".
             **kwargs: Additional keyword arguments to pass to the Newton solver in the
@@ -231,7 +227,11 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             )
 
     def h_beta_deriv(
-        self, q: jnp.ndarray, dt: float, q_prev: Optional[jnp.ndarray] = None, **kwargs
+        self,
+        q: jnp.ndarray,
+        dt: float,
+        q_prev: jnp.ndarray,
+        beta: float = 0.0,
     ) -> jnp.ndarray:
         r"""Compute the derivative of the homotopy problem with respect to
          :math:`\lambda`.
@@ -253,7 +253,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         beta: float,
         q: jnp.ndarray,
         dt: float,
-        q_prev: Optional[jnp.ndarray] = None,
+        q_prev: jnp.ndarray,
         jac: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
     ) -> jnp.ndarray:
@@ -294,8 +294,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             beta:
             q: Current time step solution.
             dt: Time step size.
-            q_prev: Previous time step solution values. Defaults to the initial
-                condition if not provided.
+            q_prev: Previous time step solution values.
             jac: Jacobian matrix of the system at (q, t + dt). If not provided, it will
                 be computed using automatic differentiation.
             parametrization: Parametrization of the homotopy curve. Either "arclength"
@@ -332,7 +331,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         beta: float,
         q: jnp.ndarray,
         dt: float,
-        q_prev: Optional[jnp.ndarray] = None,
+        q_prev: jnp.ndarray,
         jac: Optional[jnp.ndarray] = None,
         tangent: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
@@ -379,8 +378,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         Parameters:
             q: Current time step solution.
             dt: Time step size.
-            q_prev: Previous time step solution values. Defaults to the initial
-                condition if not provided.
+            q_prev: Previous time step solution values.
             jac: Jacobian matrix of the system at (q, t + dt). If not provided, it will
                 be computed using automatic differentiation.
             tangent: Tangent vector of the homotopy curve at (q, t + dt) w.r.t. the
@@ -441,7 +439,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
         beta: float,
         q: jnp.ndarray,
         dt: float,
-        q_prev: Optional[jnp.ndarray] = None,
+        q_prev: jnp.ndarray,
         jac: Optional[jnp.ndarray] = None,
         tangent: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
@@ -458,8 +456,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
             beta:
             q: Current time step solution.
             dt: Time step size.
-            q_prev: Previous time step solution values. Defaults to the initial
-                condition if not provided.
+            q_prev: Previous time step solution values.
             jac: Jacobian matrix of the system at (q, t + dt). If not provided, it will
                 be computed using automatic differentiation.
             tangent: Tangent vector of the homotopy curve at (q, t + dt) w.r.t. the
@@ -684,7 +681,7 @@ class HCAnalysisMixin(HCProtocol, BuckleyLeverettModelProtocol):
 
 
 def check_newton_convergence(
-    model: BuckleyLeverettModelProtocol,
+    model: HCModelProtocol,
     beta: float,
     q_init: jnp.ndarray,
     dt: float,

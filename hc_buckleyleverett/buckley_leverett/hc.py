@@ -21,10 +21,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from hc_buckleyleverett.buckley_leverett.model import BuckleyLeverettModel
-from hc_buckleyleverett.buckley_leverett.protocol import (
-    BuckleyLeverettModelProtocol,
-    HCProtocol,
-)
+from hc_buckleyleverett.buckley_leverett.protocol import HCModelProtocol
 from hc_buckleyleverett.utils.con_hull import HullSide, con_hull
 
 logger = logging.getLogger(__name__)
@@ -33,7 +30,7 @@ logger.setLevel(logging.INFO)
 sns.set_style("whitegrid")
 
 
-class HCMixin(HCProtocol, BuckleyLeverettModelProtocol):
+class HCMixin(HCModelProtocol):
     """Base mixin for homotopy continuation models."""
 
     def __init__(self, params: dict[str, float]):
@@ -58,7 +55,7 @@ class HCMixin(HCProtocol, BuckleyLeverettModelProtocol):
         beta: float,
         q: jnp.ndarray,
         dt: float,
-        q_prev: Optional[jnp.ndarray] = None,
+        q_prev: jnp.ndarray,
     ):
         r"""Store :math:`\lambda` values and intermediate solutions along the HC curve."""
         self.betas.append(beta)
@@ -77,8 +74,9 @@ class LinearRelPermHCMixin(HCMixin):
 
     """
 
-    def mobility_w(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
-        beta = kwargs["beta"]
+    def mobility_w(
+        self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
+    ) -> jnp.ndarray:
         # Ingore pylance error; self is a valid BuckleyLeverettModel at runtime via MRO.
         return beta * BuckleyLeverettModel.mobility_w(
             self,  # type: ignore[arg-type]
@@ -86,8 +84,9 @@ class LinearRelPermHCMixin(HCMixin):
             rp_model="linear",
         ) + (1 - beta) * BuckleyLeverettModel.mobility_w(self, s)  # type: ignore[arg-type]
 
-    def mobility_n(self, s: jnp.ndarray, **kwargs) -> jnp.ndarray:
-        beta = kwargs["beta"]
+    def mobility_n(
+        self, s: jnp.ndarray, rp_model: Optional[str] = None, beta: float = 0.0
+    ) -> jnp.ndarray:
         # Ingore pylance error; self is a valid BuckleyLeverettModel at runtime via MRO.
         return beta * BuckleyLeverettModel.mobility_n(
             self,  # type: ignore[arg-type]
@@ -114,18 +113,17 @@ class DiffusionHCMixin(HCMixin):
         self.adaptive_diffusion_coeff = kwargs.get("adaptive_diffusion_coeff", 1.0)
         self.omega = kwargs.get("omega", 2.0e-3)
 
-    def compute_face_fluxes(self, s, **kwargs):
+    def compute_face_fluxes(self, s, beta: float = 0.0):
         """Compute total and wetting phase fluxes at cell faces with vanishing
         diffusion.
 
         At domain boundaries the diffusion is nulled.
 
         """
-        beta = kwargs["beta"]
 
         # Target flux:
         # Ignore pylance error; concrete method provided by BuckleyLeverettModel via MRO.
-        F_w = super().compute_face_fluxes(s)  # type: ignore[misc]
+        F_w = super().compute_face_fluxes(s)  # type: ignore
 
         # Diffusive flux:
         s = jnp.concatenate(
@@ -308,7 +306,11 @@ class ConHullHCMixin(HCMixin):
         """
         return jnp.interp(s, self._gravity_conv_hull_s, self._gravity_conv_hull_m_w)
 
-    def compute_face_fluxes(self, s, **kwargs):
+    def compute_face_fluxes(
+        self,
+        s,
+        beta: float = 0.0,
+    ):
         """Compute total and wetting phase fluxes at cell faces with convex/concave hull
         homotopy continuation.
 
@@ -318,15 +320,13 @@ class ConHullHCMixin(HCMixin):
         combination weighted by ``beta``.
 
         """
-        beta = kwargs["beta"]
-
         # Prepend the inlet boundary saturation.
         s = jnp.concatenate([jnp.array([self.s_inlet]), s])
 
         if self.G == 0:
             # Total-flux upwinding: mobilities evaluated at the left cell.
-            m_w_target = self.mobility_w(s, **kwargs)
-            m_n_target = self.mobility_n(s, **kwargs)
+            m_w_target = self.mobility_w(s, beta=beta)
+            m_n_target = self.mobility_n(s, beta=beta)
             m_t = m_w_target + m_n_target
 
             m_w_conv = self.fractional_flow_con_hull(s) * m_t
