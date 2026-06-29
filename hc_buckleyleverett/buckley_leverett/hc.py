@@ -113,35 +113,67 @@ class DiffusionHCMixin(HCMixin):
         self.adaptive_diffusion_coeff = kwargs.get("adaptive_diffusion_coeff", 1.0)
         self.omega = kwargs.get("omega", 2.0e-3)
 
-    def compute_face_fluxes(self, s, beta: float = 0.0):
-        """Compute total and wetting phase fluxes at cell faces with vanishing
-        diffusion.
+    def compute_diffusive_flux(self, s: jnp.ndarray) -> jnp.ndarray:
+        r"""Compute the diffusive flux at cell faces.
 
-        At domain boundaries the diffusion is nulled.
+        The diffusive flux is computed as
+
+        .. math::
+            F_\mathrm{diff} = -\beta \nabla S,
+
+        where :math:`\beta` is the diffusion coefficient and :math:`S` is the
+        saturation. At domain boundaries the diffusion is zero.
+
+        Parameters:
+            s: Saturation values at cell centers.
+
+        Returns:
+            Diffusive flux at cell faces.
 
         """
+        # Zero-gradient ghost on the right.
+        s = jnp.concatenate([jnp.array([self.s_inlet]), s, jnp.array([s[-1]])])
 
-        # Target flux:
-        # Ignore pylance error; concrete method provided by BuckleyLeverettModel via MRO.
-        F_w = super().compute_face_fluxes(s)  # type: ignore
-
-        # Diffusive flux:
-        s = jnp.concatenate(
-            [jnp.array([self.s_inlet]), s, jnp.array([s[-1]])]
-        )  # zero-gradient ghost on the right
-
-        # Diffusive flux = -1 * saturation gradient * diffusion coefficient
+        # Compute the saturation gradient at cell faces.
         s_gradient = s[1:] - s[:-1]
+
+        # Compute the diffusive flux.
         diffusive_flux = -self.adaptive_diffusion_coeff * s_gradient
 
         # No diffusion at the boundaries.
         diffusive_flux = diffusive_flux.at[0].set(0.0)
         diffusive_flux = diffusive_flux.at[-1].set(0.0)
 
-        # HC flux:
-        F_w += beta * diffusive_flux
+        return diffusive_flux
 
-        return F_w
+    def residual(
+        self,
+        q: jnp.ndarray,
+        dt: float,
+        q_prev: jnp.ndarray,
+        beta: float = 0.0,
+    ) -> jnp.ndarray:
+        """Compute the residual of the HC system at (q, t + dt)
+
+        Parameters:
+            q: Current solution values.
+            dt: Time step size.
+            q_prev: Previous time step solution.
+            beta: Homotopy parameter for continuation method. Defaults to 0.0.
+
+        Returns:
+            r: Residual vector.
+
+        """
+        # Ignore pylance error; concrete method provided by BuckleyLeverettModel via MRO.
+        r = super().residual(q, dt, q_prev, beta=0.0)  # type: ignore
+
+        # Compute diffusive part of the residual. Temporal and spatial discretization
+        # are included in the adaptive diffusion coefficient.
+        F_d = self.compute_diffusive_flux(q)
+        r += beta * (F_d[1:] - F_d[:-1])
+
+        return r
 
     def update_adaptive_diffusion_coeff(self, dt: float) -> None:
         r"""Update the adaptive diffusion coefficient for the current time step.

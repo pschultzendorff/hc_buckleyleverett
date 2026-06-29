@@ -265,7 +265,7 @@ class BuckleyLeverettModel:
 
         # Buoyancy wetting flux.
         # FIXME Fix this for gravity and make it consistent with
-        # ``fractional_flow``.
+        # ``fractional_flow``. ``dx`` already appears in face_transmissibility?
         dx = self.domain_size / self.num_cells
         transmissibilities = self.face_transmissibility()
 
@@ -367,7 +367,7 @@ class BuckleyLeverettModel:
         dx = self.domain_size / self.num_cells
 
         # Residuals for flow and transport equations.
-        r = self.porosity * (q - q_prev) / dt + (F_w[1:] - F_w[:-1]) / dx
+        r = self.porosity * (q - q_prev) + (F_w[1:] - F_w[:-1]) * (dt / dx)
 
         return r
 
