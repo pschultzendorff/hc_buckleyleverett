@@ -113,16 +113,16 @@ ATOL = 1e-6
 
 def test_arclength_tangent_values(helix_point):
     r"""arclength tangent matches analytical
-    :math:`(-\sin\lambda / \sqrt{2},\; \cos\lambda / \sqrt{2},\; 1/\sqrt{2})`.
+    :math:`(\sin\lambda / \sqrt{2},\; -\cos\lambda / \sqrt{2},\; -1/\sqrt{2})`.
     """
     model, q, dt, beta = helix_point
     t = model.tangent(beta, q, dt, parametrization="arclength")
 
     expected = jnp.array(
         [
-            -jnp.sin(beta) / jnp.sqrt(2.0),
-            jnp.cos(beta) / jnp.sqrt(2.0),
-            1.0 / jnp.sqrt(2.0),
+            jnp.sin(beta) / jnp.sqrt(2.0),
+            -jnp.cos(beta) / jnp.sqrt(2.0),
+            -1.0 / jnp.sqrt(2.0),
         ]
     )
     np.testing.assert_allclose(t, expected, atol=ATOL)
@@ -137,12 +137,12 @@ def test_arclength_tangent_is_unit_vector(helix_point):
 
 def test_beta_tangent_values(helix_point):
     r"""Test that the :math:`\beta` tangent matches analytical
-    :math:`(-\sin\lambda,\; \cos\lambda)`.
+    :math:`(\sin\lambda,\; -\cos\lambda)`.
     """
     model, q, dt, beta = helix_point
     t = model.tangent(beta, q, dt, parametrization="lambda")
 
-    expected = jnp.array([-jnp.sin(beta), jnp.cos(beta)])
+    expected = jnp.array([jnp.sin(beta), -jnp.cos(beta)])
     np.testing.assert_allclose(t, expected, atol=ATOL)
 
 
