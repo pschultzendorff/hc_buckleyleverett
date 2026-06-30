@@ -124,10 +124,9 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
 
     hc_lin = LinearRelPermHCAnalysis(model_params)  # type: ignore
     hc_conv = ConHullHCAnalysis(model_params, con_hull_side=hull_side)  # type: ignore
-    hc_diff1 = DiffusionHCAnalysis(model_params, omega=1e-1)  # type: ignore
-    hc_diff2 = DiffusionHCAnalysis(model_params, omega=1e0)  # type: ignore
-    hc_diff3 = DiffusionHCAnalysis(model_params, omega=1e1)  # type: ignore
-    hc_diff4 = DiffusionHCAnalysis(model_params, omega=1e2)  # type: ignore
+    hc_diff1 = DiffusionHCAnalysis(model_params, omega=1e-3)  # type: ignore
+    hc_diff2 = DiffusionHCAnalysis(model_params, omega=1e-2)  # type: ignore
+    hc_diff3 = DiffusionHCAnalysis(model_params, omega=1e-1)  # type: ignore
 
     convex_hull_fig = hc_conv.plot_con_hull(
         color_f="black",
@@ -158,7 +157,7 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
     convergence_metric_fig, _ = plt.subplots(1, 1, figsize=(10, 6))
 
     for model, color, ls, linewidth in zip(
-        [hc_lin, hc_conv, hc_diff1, hc_diff2, hc_diff3, hc_diff4],
+        [hc_lin, hc_conv, hc_diff1, hc_diff2, hc_diff3],
         [
             "xkcd:magenta",
             "xkcd:sky blue",
@@ -167,8 +166,8 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             "xkcd:amber",
             "xkcd:dark orange",
         ],
-        ["-", "--", ":", "-.", (0, (3, 5, 1, 5)), (0, (5, 10))],
-        [4.0, 4.0, 2.5, 4.0, 4.0, 2.5],
+        ["-", "--", ":", "-.", (0, (3, 5, 1, 5))],
+        [4.0, 4.0, 2.5, 4.0, 2.5],
     ):
         model_name = model.__class__.__name__[:-8]
         if isinstance(model, DiffusionHCAnalysis):
