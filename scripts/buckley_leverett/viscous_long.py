@@ -16,7 +16,7 @@ from hc_buckleyleverett.buckley_leverett.viz import solve_and_plot
 
 logging.basicConfig(level=logging.INFO)
 
-results_dir = pathlib.Path(__file__).parent.parent.parent / "results" / "viscous"
+results_dir = pathlib.Path(__file__).parent.parent.parent / "results" / "viscous_long"
 results_dir.mkdir(exist_ok=True, parents=True)
 
 LABEL_FONTSIZE: int = 24
@@ -27,14 +27,14 @@ TICK_FONTSIZE: int = 18
 # - :math:`u_t = 0.01`
 # - :math:`k_{r,\mathrm{w}} = S^2, k_{r,\mathrm{n}} = (1-S)^2`
 # - :math:`N = 100`
-# - :math:`\Delta t = 25` instead of :math:`\Delta t = 5`.
+# - :math:`\Delta t = 100` instead of :math:`\Delta t = 5`.
 # - Physical saturation values are enforced cellwise after each Newton step.
 
 # - We assume :math:`u_t / \phi = 1.0` -> :math:`u_t = \phi = 1.0`. To obtain a scaled
-#   version of the problem above, whe therefore set :math:`\Delta t = 0.25`.
+#   version of the problem above, whe therefore set :math:`\Delta t = 1.0`.
 
 NUM_CELLS: int = 100
-FINAL_TIME: float = 0.25
+FINAL_TIME: float = 1.0
 
 # NOTE By default, total_flow = porosity = 1.0.
 model_params: dict[str, Any] = {
