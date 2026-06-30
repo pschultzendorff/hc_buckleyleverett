@@ -122,7 +122,9 @@ class DiffusionHCMixin(HCMixin):
             F_\mathrm{diff} = -\beta \nabla S,
 
         where :math:`\beta` is the diffusion coefficient and :math:`S` is the
-        saturation. At domain boundaries the diffusion is zero.
+        saturation. At domain boundaries the diffusion is zero. The full diffusion term
+        is discretized with second-order central differences, hence the diffusive flux
+        is discretized with first-order central differences.
 
         Parameters:
             s: Saturation values at cell centers.
@@ -135,7 +137,8 @@ class DiffusionHCMixin(HCMixin):
         s = jnp.concatenate([jnp.array([self.s_inlet]), s, jnp.array([s[-1]])])
 
         # Compute the saturation gradient at cell faces.
-        s_gradient = s[1:] - s[:-1]
+        dx = self.domain_size / self.num_cells
+        s_gradient = (s[1:] - s[:-1]) / dx
 
         # Compute the diffusive flux.
         diffusive_flux = -self.adaptive_diffusion_coeff * s_gradient
@@ -168,39 +171,34 @@ class DiffusionHCMixin(HCMixin):
         # Ignore pylance error; concrete method provided by BuckleyLeverettModel via MRO.
         r = super().residual(q, dt, q_prev, beta=0.0)  # type: ignore
 
-        # Compute diffusive part of the residual. Temporal and spatial discretization
-        # are included in the adaptive diffusion coefficient.
+        # Compute diffusive part of the residual
+        dx = self.domain_size / self.num_cells
         F_d = self.compute_diffusive_flux(q)
-        r += beta * (F_d[1:] - F_d[:-1])
+        r += beta * (F_d[1:] - F_d[:-1]) * (dt / dx)
 
         return r
 
     def update_adaptive_diffusion_coeff(self, dt: float) -> None:
         r"""Update the adaptive diffusion coefficient for the current time step.
 
-        We follow the approach from Jiang and Tchelepi (2018), which defines the
+        We adapt a similar approach as Jiang and Tchelepi (2018), and define the
         vanishing artificial diffusion flux for the fully coupled flow and transport
-        problem as
+        to match the information speed of the viscous flux. The adaptive diffusion
+        coefficient is computed as
 
         .. math::
-            \beta = \omega \frac{u_t \Delta t}{\Delta x} \max |(\frac{\lambda_{w}}{\lambda_{t}})'|,
+            \beta = \omega \frac{u_t}{\phi} \max |(\frac{\lambda_{w}}{\lambda_{t}})'|,
 
-        where :math:`\omega` is set to :math:`2.0 \times 10^{-3}` in the 1D scalar
-        transport problem.
+        where :math:`\omega` is a tuning coefficient.
 
         Parameters:
-
 
             dt: Time step size.
         """
         max_flow_gradient = self.f_max_grad()
-        dx = self.domain_size / self.num_cells
 
         self.adaptive_diffusion_coeff = (
-            self.omega
-            * (self.total_flow * dt)
-            / (self.porosity * dx)
-            * max_flow_gradient
+            self.omega * self.total_flow / self.porosity * max_flow_gradient
         )
 
         if jnp.isnan(self.adaptive_diffusion_coeff).any():
