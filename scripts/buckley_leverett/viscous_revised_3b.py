@@ -17,7 +17,7 @@ from hc_buckleyleverett.buckley_leverett.viz import solve_and_plot
 logging.basicConfig(level=logging.INFO)
 
 results_dir = (
-    pathlib.Path(__file__).parent.parent.parent / "results" / "viscous_revised_3"
+    pathlib.Path(__file__).parent.parent.parent / "results" / "viscous_revised_3b"
 )
 results_dir.mkdir(exist_ok=True, parents=True)
 
@@ -28,16 +28,22 @@ TICK_FONTSIZE: int = 18
 # - :math:`\Omega = [0,1]`
 # - :math:`u_t = 0.01`
 # - :math:`k_{r,\mathrm{w}} = S^2, k_{r,\mathrm{n}} = (1-S)^2`
-# - :math:`N = 500`
-# - :math:`\Delta t \approx 5`
-# - Appleyard damping is applied
+# - :math:`N = 100`
+# - :math:`\Delta t = 5`
+# - Physical saturation values are enforced cellwise after each Newton step.
+
+# - We assume :math:`u_t / \phi = 1.0` -> :math:`u_t = \phi = 1.0`. To obtain a scaled
+#   version of the problem above, whe therefore set :math:`\Delta t = 0.05`.
 
 NUM_CELLS: int = 100
+FINAL_TIME: float = 5.0
+TOTAL_FLOW: float = 0.01
 
-# NOTE By default, total_flow = porosity = 1.0.
+# NOTE By default, porosity = 1.0.
 model_params: dict[str, Any] = {
     "num_cells": NUM_CELLS,
     "domain_size": 1.0,
+    "total_flow": TOTAL_FLOW,
     # Rel. perm. model parameters:
     "rp_model": "Corey",
     "nw": 2.0,
@@ -76,10 +82,10 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
         case "case1b_sL10_sR00_sin10_M1":
             hull_side = "upper"
             rotate_solution = True
-        case "case1c_sL08_sR02_sin1_M1":
+        case "case1c_sL08_sR02_sin08_M1":
             hull_side = "upper"
             rotate_solution = True
-        case "case1d_sL02_sR08_sin00_M1":
+        case "case1d_sL02_sR08_sin02_M1":
             hull_side = "lower"
             rotate_solution = False
         case "case1e_sL05_sR05_sin1_M1":
@@ -92,13 +98,10 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
         case "case2b_sL10_sR00_sin10_M10":
             hull_side = "upper"
             rotate_solution = True
-        case "case2c_sL08_sR02_sin10_M10":
+        case "case2c_sL08_sR02_sin08_M10":
             hull_side = "upper"
             rotate_solution = True
-        case "case2c_sL09_sR01_sin09_M10":
-            hull_side = "upper"
-            rotate_solution = True
-        case "case2d_sL02_sR08_sin00_M10":
+        case "case2d_sL02_sR08_sin02_M10":
             hull_side = "lower"
             rotate_solution = False
         case "case2e_sL05_sR05_sin1_M10":
@@ -111,10 +114,10 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
         case "case3b_sL10_sR00_sin10_M01":
             hull_side = "upper"
             rotate_solution = True
-        case "case3c_sL08_sR02_sin1_M01":
+        case "case3c_sL08_sR02_sin08_M01":
             hull_side = "upper"
             rotate_solution = True
-        case "case3d_sL02_sR08_sin00_M01":
+        case "case3d_sL02_sR08_sin02_M01":
             hull_side = "lower"
             rotate_solution = False
         case "case3e_sL05_sR05_sin1_M01":
@@ -125,9 +128,11 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
 
     hc_lin = LinearRelPermHCAnalysis(model_params)  # type: ignore
     hc_conv = ConHullHCAnalysis(model_params, con_hull_side=hull_side)  # type: ignore
-    hc_diff1 = DiffusionHCAnalysis(model_params, omega=1e-10)  # type: ignore
+    hc_diff1 = DiffusionHCAnalysis(model_params, omega=1e-5)  # type: ignore
     hc_diff2 = DiffusionHCAnalysis(model_params, omega=2e-3)  # type: ignore
     hc_diff3 = DiffusionHCAnalysis(model_params, omega=1e-1)  # type: ignore
+    hc_diff4 = DiffusionHCAnalysis(model_params, omega=1e1)  # type: ignore
+    hc_diff5 = DiffusionHCAnalysis(model_params, omega=1e3)  # type: ignore
 
     convex_hull_fig = hc_conv.plot_con_hull(
         color_f="black",
@@ -137,8 +142,6 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
         tick_fontsize=TICK_FONTSIZE,
     )
     convex_hull_fig.savefig(case_dir / "flux_functions.png", bbox_inches="tight")
-
-    FINAL_TIME: float = 0.25
 
     case_dir_final_time = case_dir / f"T_{FINAL_TIME}"
     case_dir_final_time.mkdir(exist_ok=True)
@@ -160,7 +163,7 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
     convergence_metric_fig, _ = plt.subplots(1, 1, figsize=(10, 6))
 
     for model, color, ls, linewidth in zip(
-        [hc_lin, hc_conv, hc_diff1, hc_diff2, hc_diff3],
+        [hc_lin, hc_conv, hc_diff1, hc_diff2, hc_diff3, hc_diff4, hc_diff5],
         # [hc_diff1],  # , hc_diff3],
         [
             "xkcd:magenta",
@@ -168,9 +171,11 @@ def compare_solvers(model_params: dict[str, Any], run_case: str) -> None:
             "xkcd:orange",
             "xkcd:light orange",
             "xkcd:amber",
+            "xkcd:dark orange",
+            "xkcd:dark red",
         ],
-        ["-", "--", ":", "-.", (0, (3, 5, 1, 5))],
-        [4.0, 4.0, 2.5, 4.0, 2.5],
+        ["-", "--", ":", "-.", (0, (3, 5, 1, 5)), (0, (5, 10)), (0, (1, 10))],
+        [4.0, 4.0, 2.5, 4.0, 2.5, 2.5, 2.5],
     ):
         model_name = model.__class__.__name__[:-8]
         if isinstance(model, DiffusionHCAnalysis):
@@ -275,7 +280,7 @@ model_params.update(
 )
 # compare_solvers(model_params, "case1b_sL10_sR00_sin10_M1")
 
-# Case 1c: s_L = 0.8, s_R = 0.2, s_inlet = 1.0, M = mu_w/mu_n = 1.0
+# Case 1c: s_L = 0.8, s_R = 0.2, s_inlet = 0.8, M = mu_w/mu_n = 1.0
 model_params.update(
     {
         "s_inlet": 0.8,
@@ -284,9 +289,9 @@ model_params.update(
         "mu_n": 1.0,
     }
 )
-# compare_solvers(model_params, "case1c_sL08_sR02_sin1_M1")
+# compare_solvers(model_params, "case1c_sL08_sR02_sin08_M1")
 
-# Case 1d: s_L = 0.2, s_R = 0.8, s_inlet = 0.0, M = mu_w/mu_n = 1.0
+# Case 1d: s_L = 0.2, s_R = 0.8, s_inlet = 0.2, M = mu_w/mu_n = 1.0
 model_params.update(
     {
         "s_inlet": 0.2,
@@ -295,7 +300,7 @@ model_params.update(
         "mu_n": 1.0,
     }
 )
-# compare_solvers(model_params, "case1d_sL02_sR08_sin00_M1")
+# compare_solvers(model_params, "case1d_sL02_sR08_sin02_M1")
 
 # Case 1e: s_L = 0.5, s_R = 0.5, s_inlet = 1.0, M = mu_w/mu_n = 1.0
 model_params.update(
@@ -331,18 +336,18 @@ model_params.update(
 )
 compare_solvers(model_params, "case2b_sL10_sR00_sin10_M10")
 
-# Case 2c: s_L = 0.8, s_R = 0.2, s_inlet = 1.0, M = mu_w/mu_n = 10.0
+# Case 2c: s_L = 0.8, s_R = 0.2, s_inlet = 0.8, M = mu_w/mu_n = 10.0
 model_params.update(
     {
-        "s_inlet": 0.9,
-        "s_initial": jnp.array([0.9] * (NUM_CELLS // 2) + [0.1] * (NUM_CELLS // 2)),
+        "s_inlet": 0.8,
+        "s_initial": jnp.array([0.8] * (NUM_CELLS // 2) + [0.2] * (NUM_CELLS // 2)),
         "mu_w": 10.0,
         "mu_n": 1.0,
     }
 )
-compare_solvers(model_params, "case2c_sL09_sR01_sin09_M10")
+compare_solvers(model_params, "case2c_sL08_sR02_sin08_M10")
 
-# Case 2d: s_L = 0.2, s_R = 0.8, s_inlet = 0.0, M = mu_w/mu_n = 10.0
+# Case 2d: s_L = 0.2, s_R = 0.8, s_inlet = 0.2, M = mu_w/mu_n = 10.0
 model_params.update(
     {
         "s_inlet": 0.2,
@@ -351,7 +356,7 @@ model_params.update(
         "mu_n": 1.0,
     }
 )
-# compare_solvers(model_params, "case2d_sL02_sR08_sin00_M10")
+# compare_solvers(model_params, "case2d_sL02_sR08_sin02_M10")
 
 # Case 2e: s_L = 0.5, s_R = 0.5, s_inlet = 1.0, M = mu_w/mu_n = 10.0
 model_params.update(
@@ -395,9 +400,9 @@ model_params.update(
         "mu_n": 10.0,
     }
 )
-# compare_solvers(model_params, "case3c_sL08_sR02_sin1_M01")
+# compare_solvers(model_params, "case3c_sL08_sR02_sin08_M01")
 
-# Case 3d: s_L = 0.2, s_R = 0.8, s_inlet = 0.0, M = mu_w/mu_n = 0.1
+# Case 3d: s_L = 0.2, s_R = 0.8, s_inlet = 0.2, M = mu_w/mu_n = 0.1
 model_params.update(
     {
         "s_inlet": 0.2,
@@ -406,7 +411,7 @@ model_params.update(
         "mu_n": 10.0,
     }
 )
-# compare_solvers(model_params, "case3d_sL02_sR08_sin00_M01")
+# compare_solvers(model_params, "case3d_sL02_sR08_sin02_M01")
 
 # Case 3e: s_L = 0.5, s_R = 0.5, s_inlet = 1.0, M = mu_w/mu_n = 0.1
 model_params.update(
