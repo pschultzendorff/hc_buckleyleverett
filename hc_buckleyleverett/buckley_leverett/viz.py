@@ -356,9 +356,20 @@ def plot_convergence_metric(
     label1 = label + r" $j = 1$"
     label0 = label + r" $j = 0$"
 
-    ax.plot(curve_parametrization, scaled_newton_rs1, label=label1, **kwargs_copy)
     ax.plot(
-        curve_parametrization, scaled_newton_rs0, label=label0, alpha=0.4, **kwargs_copy
+        curve_parametrization,
+        scaled_newton_rs1,
+        label=label1,
+        **kwargs_copy,
+    )
+    linewidth0 = kwargs_copy.pop("linewidth", 1.0) * 0.6
+    ax.plot(
+        curve_parametrization,
+        scaled_newton_rs0,
+        label=label0,
+        alpha=0.4,
+        linewidth=linewidth0,
+        **kwargs_copy,
     )
 
     ax.set_xlabel(r"$s / s_\mathrm{tot}$", fontsize=label_fontsize)
