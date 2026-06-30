@@ -139,7 +139,8 @@ class HCAnalysisMixin(HCModelProtocol):
         self.tangents: list[jnp.ndarray] = []
         self.curvature_vectors: list[jnp.ndarray] = []
         self.curvature_lambda_vectors: list[jnp.ndarray] = []
-        self.newton_rs: list[float] = []
+        self.newton_rs1: list[float] = []
+        self.newton_rs0: list[float] = []
 
     def reset(self) -> None:
         """Reset tangent and curvature lists."""
@@ -148,7 +149,8 @@ class HCAnalysisMixin(HCModelProtocol):
         self.tangents = []
         self.curvature_vectors = []
         self.curvature_lambda_vectors = []
-        self.newton_rs = []
+        self.newton_rs1 = []
+        self.newton_rs0 = []
 
     def store_curve_data(
         self,
@@ -214,17 +216,17 @@ class HCAnalysisMixin(HCModelProtocol):
         )
 
         if q_prev is not None:
-            self.newton_rs.append(
-                self.convergence_metric(
-                    self.betas[-1],
-                    q,
-                    dt,
-                    q_prev,
-                    tangent=self.tangents[-1],
-                    parametrization=parametrization,
-                    **kwargs,
-                )
+            convergence_metric = self.convergence_metric(
+                self.betas[-1],
+                q,
+                dt,
+                q_prev,
+                tangent=self.tangents[-1],
+                parametrization=parametrization,
+                **kwargs,
             )
+            self.newton_rs1.append(convergence_metric["first_order"])
+            self.newton_rs0.append(convergence_metric["zero_order"])
 
     def h_beta_deriv(
         self,
@@ -499,23 +501,25 @@ class HCAnalysisMixin(HCModelProtocol):
         tangent: Optional[jnp.ndarray] = None,
         parametrization: str = "arclength",
         **kwargs,
-    ) -> float:
-        r"""Compute a metric of Newton convergence along the homotopy curve. For example,
-        this could be the average curvature or the maximum curvature along the curve.
-
+    ) -> dict[str, float]:
+        r"""Compute a metric of Newton convergence along the homotopy curve.
 
         Given a previous solution along the curve, :math:`\mathbf{q}(s)`, the initial
-        guess of the Newton corrector step lies along the line
-        :math:`\mathbf{q}_\mr{pred}(s)(\gamma) = \{\mathbf{q}(s) + \gamma
-        \dot{\mathbf{q}}(s) \mid \gamma \in \mathbb{R}^+\}`. The measures for Newton
-        convergence are
+        guess of the Newton corrector step
+        - lies along the line :math:`\mathbf{q}_\mr{pred,1}(s)(\gamma) = \{\mathbf{q}(s)
+        + \gamma \dot{\mathbf{q}}(s) \mid \gamma \in \mathbb{R}^+\}` for a first order
+        predictor.
+        - is :math:`\mathbf{q}_\mr{pred,0}(s)(\gamma) = \{\mathbf{q}(s)` for a zero
+        order predictor.
+
+        The measures for Newton convergence are
 
         .. math::
 
-            r(s) = \max_r \{r \mid \text{Newton converges from }
-            \mathbf{q}_\mr{pred}(s)(\gamma) \, \forall \, 0 < \gamma \leq r\},
+            r_i(s) = \max_r \{r \mid \text{Newton converges from }
+            \mathbf{q}_\mr{pred,i}(s)(\gamma) \, \forall \, 0 < \gamma \leq r\}, i=0,1,
 
-            \hat{r}(s) = r(s) \cdot \dot{\lambda}(s),
+            \hat{r}_i(s) = r_i(s) \cdot \dot{\lambda}(s),
 
         where the latter is the projection of the maximum admissible step size onto the
         homotopy parameter axis.
@@ -545,6 +549,7 @@ class HCAnalysisMixin(HCModelProtocol):
         """
         current_beta = beta
         current_solution = q.copy()  # ``shape=(N,)``
+
         if tangent is None:
             tangent = self.tangent(
                 current_beta,
@@ -554,76 +559,93 @@ class HCAnalysisMixin(HCModelProtocol):
                 jac=self.linear_system[0],
                 parametrization=parametrization,
             )  # ``shape=(N + 1,)``, includes beta.
-        tangent_q = tangent[:-1]
-        tangent_beta = float(tangent[-1])
-        assert tangent_beta < 0, f"tangent_beta is positive: {tangent_beta = }"
 
-        # Evaluate the maximum step size along the tangent before lambda becomes
-        # negative.
-        max_gamma = current_beta / tangent_beta
-        small_gamma = max_gamma / 20.0
+        result = {"first_order": 0.0, "zero_order": 0.0}
 
-        # Use binary search to find the maximum admissible gamma.
-        lo, hi = small_gamma, max_gamma
-        converged_gamma = 0.0
-        num_evals = 0
+        for order in ["first_order", "zero_order"]:
+            if order == "first_order":
+                tangent_q = tangent[:-1]
+                tangent_beta = float(tangent[-1])
+            elif order == "zero_order":
+                tangent_q = jnp.zeros_like(tangent[:-1])
+                tangent_beta = float(tangent[-1])
+            else:
+                raise ValueError(f"Unknown order: {order}")
 
-        # Check whether the largest admissible step size converges.
-        trial_beta = current_beta + max_gamma * tangent_beta
-        trial_q_init = current_solution + max_gamma * tangent_q
-        num_evals += 1
-        if (
-            check_newton_convergence(
-                self, trial_beta, trial_q_init, dt, q_prev, **kwargs
-            )
-            >= 1
-        ):
-            logger.info(
-                f"Evaluated Newton convergence for {num_evals} candidate gammas"
-            )
-            return abs(max_gamma * tangent_beta)
+            assert tangent_beta < 0, f"tangent_beta is positive: {tangent_beta = }"
 
-        # Verify that the smallest step converges at all.
-        trial_beta = current_beta + small_gamma * tangent_beta
-        trial_q_init = current_solution + small_gamma * tangent_q
+            # Evaluate the maximum step size along the tangent before lambda becomes
+            # negative.
+            max_gamma = abs(current_beta / tangent_beta)
+            small_gamma = max_gamma / 20.0
 
-        num_evals += 1
-        if (
-            check_newton_convergence(
-                self, trial_beta, trial_q_init, dt, q_prev, **kwargs
-            )
-            == -1
-        ):
-            # Even the smallest step fails — converged_gamma stays 0.
-            logger.info(
-                f"Evaluated Newton convergence for {num_evals} candidate gammas"
-            )
-            return abs(converged_gamma * tangent_beta)
+            # Use binary search to find the maximum admissible gamma.
+            lo, hi = small_gamma, max_gamma
+            converged_gamma = 0.0
+            num_evals = 0
 
-        converged_gamma = small_gamma
-
-        # Binary search over [small_gamma, max_gamma] for the boundary.
-        max_bisection_steps = 5
-        for _ in range(max_bisection_steps):
-            mid = (lo + hi) / 2.0
-            trial_beta = current_beta + mid * tangent_beta
-            trial_q_init = current_solution + mid * tangent_q
+            # Check whether the largest admissible step size converges.
+            trial_beta = current_beta + max_gamma * tangent_beta
+            trial_q_init = current_solution + max_gamma * tangent_q
             num_evals += 1
-
             if (
                 check_newton_convergence(
                     self, trial_beta, trial_q_init, dt, q_prev, **kwargs
                 )
-                != -1
+                >= 1
             ):
-                converged_gamma = mid
-                lo = mid
-            else:
-                hi = mid
+                result[order] = abs(max_gamma * tangent_beta)
+                logger.info(
+                    f"Evaluated Newton convergence for {num_evals} candidate gammas"
+                )
+                continue
 
-        logger.info(f"Evaluated Newton convergence for {num_evals} candidate gammas")
+            # Verify that the smallest step converges at all.
+            trial_beta = current_beta + small_gamma * tangent_beta
+            trial_q_init = current_solution + small_gamma * tangent_q
 
-        return abs(converged_gamma * tangent_beta)
+            num_evals += 1
+            if (
+                check_newton_convergence(
+                    self, trial_beta, trial_q_init, dt, q_prev, **kwargs
+                )
+                == -1
+            ):
+                # Even the smallest step fails — converged_gamma stays 0.
+                result[order] = 0.0
+                logger.info(
+                    f"Evaluated Newton convergence for {num_evals} candidate gammas"
+                )
+                continue
+
+            converged_gamma = small_gamma
+
+            # Binary search over [small_gamma, max_gamma] for the boundary.
+            max_bisection_steps = 5
+            for _ in range(max_bisection_steps):
+                mid = (lo + hi) / 2.0
+                trial_beta = current_beta + mid * tangent_beta
+                trial_q_init = current_solution + mid * tangent_q
+                num_evals += 1
+
+                if (
+                    check_newton_convergence(
+                        self, trial_beta, trial_q_init, dt, q_prev, **kwargs
+                    )
+                    != -1
+                ):
+                    converged_gamma = mid
+                    lo = mid
+                else:
+                    hi = mid
+
+            logger.info(
+                f"Evaluated Newton convergence for {num_evals} candidate gammas"
+            )
+
+            result[order] = abs(converged_gamma * tangent_beta)
+
+        return result
 
     # def find_convergence_region(
     #     model: HCModel,
@@ -697,7 +719,7 @@ def check_newton_convergence(
 
     Parameters:
         model: The model to solve.
-        beta:
+        beta: Homotopy parameter value determining which problem is checked.
         q_init: Initial guess for Newton's method.
         dt: Time step size.
         q_prev: Previous time step solution.

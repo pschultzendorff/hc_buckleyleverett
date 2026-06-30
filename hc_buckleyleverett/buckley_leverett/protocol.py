@@ -130,7 +130,8 @@ else:
 
     class HCAnalysisProtocol(Protocol):
         curvature_vectors: list[jnp.ndarray]
-        newton_rs: list[float]
+        newton_rs1: list[float]
+        newton_rs0: list[float]
         curvature_lambda_vectors: list[jnp.ndarray]
 
         def hessian_tensor(self, f: Callable) -> Callable:

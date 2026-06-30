@@ -319,7 +319,8 @@ def plot_curvature_lambda(
 
 def plot_convergence_metric(
     curve_parametrization: ArrayLike,
-    scaled_newton_rs: ArrayLike,
+    scaled_newton_rs1: ArrayLike,
+    scaled_newton_rs0: ArrayLike,
     fig: Optional[Figure] = None,
     **kwargs,
 ):
@@ -328,7 +329,8 @@ def plot_convergence_metric(
     Parameters:
         curve_parametrization: Relative arclengths (or a different curve
             parametrization) for the x-axis.
-        scaled_newton_rs: Newton convergence metric to plot.
+        scaled_newton_rs1: First-order Newton convergence metric to plot.
+        scaled_newton_rs0: Zero-order Newton convergence metric to plot.
         fig: Existing figure to draw into. A new one is created when ``None``.
         **kwargs: Accepts ``color``, ``ls``, ``linewidth``, ``marker``, ``label``, and
             other matplotlib plot arguments.
@@ -338,7 +340,8 @@ def plot_convergence_metric(
 
     """
     curve_parametrization = jnp.asarray(curve_parametrization)
-    scaled_newton_rs = jnp.asarray(scaled_newton_rs)
+    scaled_newton_rs1 = jnp.asarray(scaled_newton_rs1)
+    scaled_newton_rs0 = jnp.asarray(scaled_newton_rs0)
 
     label_fontsize = kwargs.pop("label_fontsize", 14)
     tick_fontsize = kwargs.pop("tick_fontsize", 10)
@@ -348,10 +351,18 @@ def plot_convergence_metric(
     else:
         ax = fig.axes[0]
 
-    ax.plot(curve_parametrization, scaled_newton_rs, **kwargs)
+    kwargs_copy = kwargs.copy()
+    label = kwargs_copy.pop("label")
+    label1 = label + r" $j = 1$"
+    label0 = label + r" $j = 0$"
+
+    ax.plot(curve_parametrization, scaled_newton_rs1, label=label1, **kwargs_copy)
+    ax.plot(
+        curve_parametrization, scaled_newton_rs0, label=label0, alpha=0.4, **kwargs_copy
+    )
 
     ax.set_xlabel(r"$s / s_\mathrm{tot}$", fontsize=label_fontsize)
-    ax.set_ylabel(r"$\tilde{r}(s)$", fontsize=label_fontsize)
+    ax.set_ylabel(r"$\tilde{r}_j(s)$", fontsize=label_fontsize)
     ax.tick_params(axis="x", labelsize=tick_fontsize)
     ax.tick_params(axis="y", labelsize=tick_fontsize)
 
@@ -369,7 +380,7 @@ def plot_convergence_metric(
 
     ax.legend(fontsize=label_fontsize)
 
-    fig.tight_layout()
+    # fig.tight_layout()
     return fig
 
 
@@ -595,7 +606,15 @@ def solve_and_plot(
             jnp.asarray(model.curvature_lambda_vectors), axis=-1
         )
 
-        scaled_newton_rs = jnp.asarray(model.newton_rs) / jnp.asarray(model.betas)
+        scaled_newton_rs1 = jnp.asarray(model.newton_rs1) / jnp.asarray(model.betas)
+        scaled_newton_rs0 = jnp.asarray(model.newton_rs0) / jnp.asarray(model.betas)
+
+        # If model.betas[-1] == 0, then scaled_newton_rs1[-1] and scaled_newton_rs0[-1]
+        # will be NaN. We set them to 1.0 as Newton converged at the last point (beta=0)
+        # by definition.
+        if model.betas[-1] == 0:
+            scaled_newton_rs1 = scaled_newton_rs1.at[-1].set(1.0)
+            scaled_newton_rs0 = scaled_newton_rs0.at[-1].set(1.0)
 
         ylim_top = plotting_kwargs.pop("ylim_top")
 
@@ -621,7 +640,8 @@ def solve_and_plot(
 
         convergence_metric_fig = plot_convergence_metric(
             arclengths,
-            scaled_newton_rs,
+            scaled_newton_rs1,
+            scaled_newton_rs0,
             fig=convergence_metric_fig,
             **plotting_kwargs,
         )
